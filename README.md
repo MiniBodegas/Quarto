@@ -142,4 +142,4 @@ Todas las operaciones son simuladas (timeouts).
 Definir (MIT / Propietario). Añadir archivo LICENSE si aplica.
 
 ---
-Desarrollado para MiniBodegas como base operativa de portal de clientes.
+Desarrollado para Quarto como base operativa de portal de clientes.
