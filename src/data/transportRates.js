@@ -1,0 +1,18 @@
+export const TRANSPORT_RATES = [
+    { volume: 0.5, price: 80000 },
+    { volume: 1, price: 100000 },
+    { volume: 2, price: 110000 },
+    { volume: 3, price: 120000 },
+    { volume: 4, price: 130000 },
+    { volume: 5, price: 140000 },
+    { volume: 6, price: 150000 },
+    { volume: 7, price: 160000 },
+    { volume: 8, price: 170000 },
+    { volume: 9, price: 180000 },
+    { volume: 10, price: 190000 },
+    { volume: 11, price: 200000 },
+    { volume: 12, price: 210000 },
+    { volume: 13, price: 220000 },
+    { volume: 14, price: 230000 },
+    { volume: 15, price: 240000 },
+];

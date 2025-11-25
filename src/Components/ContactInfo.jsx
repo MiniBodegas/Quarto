@@ -1,8 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import Card from './ui/Card';
-import Button from './ui/Button';
-import Input from './ui/Input';
-import Spinner from './ui/Spinner';
+import { useState, useEffect } from 'react';
+import {Card, Button, Input, Spinner} from './index';
 
 const ContactInfo = ({ company, onUpdateProfile }) => {
   const [isEditing, setIsEditing] = useState(false);
