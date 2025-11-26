@@ -1,7 +1,7 @@
 import { 
     BoxIcon, SofaIcon, BedIcon, TvIcon, RefrigeratorIcon, TableIcon, ChairIcon, WardrobeIcon, CubeIcon,
     Box1Icon, Box3Icon, Box6Icon, Box12Icon
-} from '../Components/calculator/';
+} from '../Components/calculator/icons';
 
 export const CATEGORIES = [
   { id: 'sala', name: 'Sala de estar' },
