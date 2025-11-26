@@ -45,6 +45,12 @@ const Summary = ({ totalVolume, totalItems, selectedItems, onContinue, onClearAl
 
             <div className="space-y-2">
                 <Button
+                    onClick={onContinue}
+                    disabled={totalItems === 0}
+                >
+                    Continuar
+                </Button>
+                <Button
                     variant="danger"
                     onClick={onClearAll}
                     disabled={totalItems === 0}
@@ -54,12 +60,7 @@ const Summary = ({ totalVolume, totalItems, selectedItems, onContinue, onClearAl
                     Vaciar inventario
                 </Button>
                 
-                <Button
-                    onClick={onContinue}
-                    disabled={totalItems === 0}
-                >
-                    Continuar
-                </Button>
+                
             </div>
         </div>
     );
