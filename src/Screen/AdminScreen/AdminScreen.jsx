@@ -1,5 +1,4 @@
-import AdminPanel from '../Components/AdminPanel';
-import AdminLogin from '../Components/AdminLogin';
+import {AdminLogin, AdminPanel} from '../../Components/index';
 
 const AdminScreen = ({
   isAdminLoggedIn,

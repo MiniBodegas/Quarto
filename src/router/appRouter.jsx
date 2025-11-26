@@ -1,6 +1,6 @@
 
 import { Routes, Route } from 'react-router-dom';
-import Calculator from '../Screen/index';
+import {Calculator} from '../Screen/index';
 
 const AppRoutes = () => (
     <Routes>

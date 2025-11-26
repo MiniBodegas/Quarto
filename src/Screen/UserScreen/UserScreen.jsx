@@ -1,4 +1,4 @@
-import Portal from '../../Components/index';
+import {Portal} from '../../Components/index';
 
 const UserScreen = ({
   loggedInCompanyProfile,

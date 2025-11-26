@@ -1,7 +1,7 @@
-import React, { useState, useMemo, useCallback, useEffect, useReducer } from 'react';
+import { useState, useMemo, useCallback, useEffect, useReducer } from 'react';
 import { CATEGORIES } from '../../data/constants';
 import { useInventory } from '../../Hooks/useInventory';
-import { AddItemForm, Summary, ItemCard, ResultsScreen, TransportScreen, FinalSummaryScreen, QuoteRequestScreen, BookingScreen, ConfirmationScreen, ScreenHeader, Input } from '../../Components';
+import { AddItemForm, Summary, ItemCard, ResultsScreen, TransportScreen, FinalSummaryScreen, QuoteRequestScreen, BookingScreen, ConfirmationScreen, ScreenHeader, Input, Button } from '../../Components';
 import { SearchIcon, ChevronDownIcon } from '../../Components/calculator/icons';
 
 // --- State Management with Reducer ---
@@ -233,19 +233,37 @@ const Calculator = () => {
                                     const categoryItems = itemsByCategory[category.id];
                                     if (!categoryItems || categoryItems.length === 0) return null;
                                     const isExpanded = !!searchQuery || expandedCategories.has(category.id);
-
+                                
                                     return (
-                                        <div key={category.id} className="bg-white dark:bg-slate-900 rounded-2xl border border-border dark:border-border-dark">
-                                            <button onClick={() => handleToggleCategory(category.id)} className={`w-full flex justify-between items-center p-4 sm:p-5 text-left ${!searchQuery ? 'cursor-default' : ''}`} aria-expanded={isExpanded}>
-                                                <h2 className="text-xl font-bold dark:text-slate-100">{category.name}</h2>
+                                        <div
+                                            key={category.id}
+                                            className="bg-white rounded-2xl border border-border dark:border-border-dark mb-6 max-w-full overflow-hidden"
+                                            style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
+                                        >
+                                            <button
+                                                onClick={() => handleToggleCategory(category.id)}
+                                                className={`w-full flex justify-between items-center p-4 sm:p-5 text-left ${!searchQuery ? 'cursor-default' : ''}`}
+                                                aria-expanded={isExpanded}
+                                            >
+                                                <h2 className="text-xl font-bold text-[#012E58]">{category.name}</h2>
                                                 <div className="bg-muted dark:bg-secondary-dark rounded-full p-1">
-                                                    <ChevronDownIcon className={`w-5 h-5 text-text-light dark:text-slate-400 transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
+                                                    <ChevronDownIcon className={`w-5 h-5 text-text-light text-[#012E58] transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
                                                 </div>
                                             </button>
                                             {isExpanded && (
-                                                <div className="px-4 sm:px-5 pb-5 border-t border-border dark:border-slate-700">
-                                                    <div className="pt-5 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                        {categoryItems.map(item => <ItemCard key={item.id} item={item} onQuantityChange={updateItemQuantity} onRemove={removeItem} />)}
+                                                <div
+                                                    className="px-4 sm:px-5 pb-5 border-t border-border dark:border-slate-700"
+                                                    style={{ maxHeight: '400px', overflowY: 'auto' }}
+                                                >
+                                                    <div className="pt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
+                                                        {categoryItems.map(item => (
+                                                            <ItemCard
+                                                                key={item.id}
+                                                                item={item}
+                                                                onQuantityChange={updateItemQuantity}
+                                                                onRemove={removeItem}
+                                                            />
+                                                        ))}
                                                     </div>
                                                 </div>
                                             )}
@@ -253,9 +271,9 @@ const Calculator = () => {
                                     );
                                 })}
 
-                                <div className="bg-white dark:bg-slate-900 rounded-2xl border border-border dark:border-border-dark">
+                                <div className="bg-white rounded-2xl border  border-border dark:border-border-dark">
                                     <button onClick={() => setIsAddFormExpanded(p => !p)} className="w-full flex justify-between items-center p-4 sm:p-5 text-left" aria-expanded={isAddFormExpanded}>
-                                        <h2 className="text-xl font-bold dark:text-slate-100">Añadir artículo personalizado</h2>
+                                        <h2 className="text-xl font-bold text-[#012E58]">Añadir artículo personalizado</h2>
                                         <div className="bg-muted dark:bg-secondary-dark rounded-full p-1">
                                             <ChevronDownIcon className={`w-5 h-5 text-text-light dark:text-slate-400 transform transition-transform duration-300 ${isAddFormExpanded ? 'rotate-180' : ''}`} />
                                         </div>
