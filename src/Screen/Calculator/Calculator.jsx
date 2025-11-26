@@ -1,8 +1,9 @@
 import { useState, useMemo, useCallback, useEffect, useReducer } from 'react';
 import { CATEGORIES } from '../../data/constants';
 import { useInventory } from '../../Hooks/useInventory';
-import { AddItemForm, Summary, ItemCard, ResultsScreen, TransportScreen, FinalSummaryScreen, QuoteRequestScreen, BookingScreen, ConfirmationScreen, ScreenHeader, Input, Button } from '../../Components';
+import { AddItemForm, Summary, ConfirmModal, ItemCard, ResultsScreen, TransportScreen, FinalSummaryScreen, QuoteRequestScreen, BookingScreen, ConfirmationScreen, ScreenHeader, Input, Button } from '../../Components';
 import { SearchIcon, ChevronDownIcon } from '../../Components/calculator/icons';
+
 
 // --- State Management with Reducer ---
 
@@ -65,6 +66,7 @@ const Calculator = () => {
     const [isAddFormExpanded, setIsAddFormExpanded] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [isStyled, setIsStyled] = useState(false);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
 
     useEffect(() => {
         const timer = setTimeout(() => setIsStyled(true), 150);
@@ -80,13 +82,20 @@ const Calculator = () => {
     }, [addItem]);
 
     const handleClearAll = useCallback(() => {
-        if (window.confirm('¿Estás seguro de que quieres vaciar el inventario? Se eliminarán los artículos personalizados y las cantidades de los artículos predefinidos se restablecerán a cero.')) {
-            clearAll();
-            setSearchQuery('');
-            setExpandedCategories(new Set());
-            dispatch({ type: 'RESET_APP' });
-        }
-    }, [clearAll]);
+        setShowConfirmModal(true);
+    }, []);
+
+    const handleConfirmClear = () => {
+        clearAll();
+        setSearchQuery('');
+        setExpandedCategories(new Set());
+        dispatch({ type: 'RESET_APP' });
+        setShowConfirmModal(false);
+    };
+
+    const handleCancelClear = () => {
+        setShowConfirmModal(false);
+    };
 
     const handleRemoveSelectedItem = useCallback((id) => {
         const item = items.find(i => i.id === id);
@@ -311,6 +320,11 @@ const Calculator = () => {
                     </p>
                 </footer>
             )}
+            <ConfirmModal
+                open={showConfirmModal}
+                onConfirm={handleConfirmClear}
+                onCancel={handleCancelClear}
+            />
         </div>
     );
 };
