@@ -12,13 +12,15 @@ const ItemCard = ({ item, onQuantityChange, onRemove }) => {
     const handleIncrement = () => {
         onQuantityChange(id, quantity + 1);
     };
-    
+
     const handleInputChange = (e) => {
         const value = parseInt(e.target.value, 10);
         onQuantityChange(id, isNaN(value) ? 0 : value);
     };
 
-    const subtotalVolume = (volume * quantity).toFixed(1);
+    const subtotalVolume = (typeof volume === 'number' && !isNaN(volume))
+        ? (volume * quantity).toFixed(1)
+        : '0.0';
 
     return (
         <div className="bg-muted dark:bg-muted-dark p-3 rounded-xl flex flex-col justify-between text-[#012E58]">
@@ -36,20 +38,23 @@ const ItemCard = ({ item, onQuantityChange, onRemove }) => {
                     )}
                 </div>
                 <div className="text-xs opacity-80 mb-2">
-                    <p>Vol: <strong>{volume.toFixed(1)} m³</strong> <span className="opacity-70">({width}x{height}x{depth}m)</span></p>
+                    <p>
+                        Vol: <strong>{typeof volume === 'number' && !isNaN(volume) ? volume.toFixed(1) : '0.0'} m³</strong>
+                        <span className="opacity-70">({width}x{height}x{depth}m)</span>
+                    </p>
                 </div>
             </div>
             <div className="flex items-center justify-center ">
                 <div className="flex items-center space-x-1">
-                    <button 
-                        onClick={handleDecrement} 
+                    <button
+                        onClick={handleDecrement}
                         className="w-8 h-8 flex items-center justify-center bg-white rounded-full hover:bg-red-100 hover:text-red-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                         disabled={quantity <= 0}
                         aria-label="Quitar uno"
                     >
                         <i className="material-symbols-outlined text-[#012E58] text-2xl">remove_circle</i>
                     </button>
-                    <input 
+                    <input
                         type="text"
                         role="spinbutton"
                         aria-valuemin={0}
@@ -58,8 +63,8 @@ const ItemCard = ({ item, onQuantityChange, onRemove }) => {
                         onChange={handleInputChange}
                         className="w-10 text-center bg-transparent font-bold text-base focus:outline-none"
                     />
-                    <button 
-                        onClick={handleIncrement} 
+                    <button
+                        onClick={handleIncrement}
                         className="w-8 h-8 flex items-center justify-center bg-white rounded-full hover:bg-blue-100 hover:text-blue-700 transition-colors"
                         aria-label="Agregar uno"
                     >

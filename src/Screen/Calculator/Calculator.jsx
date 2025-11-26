@@ -1,8 +1,9 @@
 import { useState, useMemo, useCallback, useEffect, useReducer } from 'react';
-import { CATEGORIES } from '../../data/constants';
 import { useInventory } from '../../Hooks/useInventory';
+import { useItemsByCategory } from '../../Hooks/useItemsByCategory';
 import { AddItemForm, Summary, ConfirmModal, ItemCard, ResultsScreen, TransportScreen, FinalSummaryScreen, QuoteRequestScreen, BookingScreen, ConfirmationScreen, ScreenHeader, Input, Button } from '../../Components';
 import { SearchIcon, ChevronDownIcon } from '../../Components/calculator/icons';
+import {saveCustomItem} from '../../services/saveCustomItem';
 
 
 // --- State Management with Reducer ---
@@ -68,6 +69,9 @@ const Calculator = () => {
     const [isStyled, setIsStyled] = useState(false);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
 
+    // Usa tu hook para obtener categorías y artículos agrupados
+    const { categories, itemsByCategory, loading } = useItemsByCategory();
+
     useEffect(() => {
         const timer = setTimeout(() => setIsStyled(true), 150);
         return () => clearTimeout(timer);
@@ -75,11 +79,21 @@ const Calculator = () => {
     
     // --- Memoized Callbacks for Child Components ---
     
+    let userId = undefined; // El usuario aún no existe
+
+    // Si tienes lógica de autenticación, aquí lo actualizas cuando el usuario se registre/inicie sesión
+    // Ejemplo:
+    // userId = session?.user?.id;
+
     const handleAddItem = useCallback((newItemData) => {
-        const fullNewItem = addItem(newItemData);
+        const fullNewItem = addItem({ ...newItemData, isCustom: true });
+        // Solo guarda en la DB si tienes el userId
+        if (typeof userId !== 'undefined' && userId) {
+            saveCustomItem(fullNewItem, userId);
+        }
         setExpandedCategories(prev => new Set(prev).add(fullNewItem.categoryId));
         setIsAddFormExpanded(false);
-    }, [addItem]);
+    }, [addItem, userId]);
 
     const handleClearAll = useCallback(() => {
         setShowConfirmModal(true);
@@ -116,7 +130,7 @@ const Calculator = () => {
     }, [searchQuery]);
 
     // --- Memoized Derived State ---
-
+    // Calcula el total usando los items del inventario local (puedes adaptar para usar los de la DB si lo deseas)
     const { totalVolume, totalItems } = useMemo(() => {
         return items.reduce(
             (acc, item) => {
@@ -130,27 +144,7 @@ const Calculator = () => {
     
     const selectedItems = useMemo(() => items.filter(item => item.quantity > 0), [items]);
 
-    const itemsByCategory = useMemo(() => {
-        const grouped = {};
-        CATEGORIES.forEach(cat => grouped[cat.id] = []);
-
-        const itemsToDisplay = searchQuery
-            ? items.filter(item => item.name.toLowerCase().includes(searchQuery.toLowerCase()))
-            : items;
-
-        for (const item of itemsToDisplay) {
-            if (grouped[item.categoryId]) {
-                grouped[item.categoryId].push(item);
-            } else {
-                if (!grouped['varios']) grouped['varios'] = [];
-                grouped['varios'].push(item);
-            }
-        }
-        return grouped;
-    }, [items, searchQuery]);
-
     // --- Render Logic ---
-    
     const opacityClass = `transition-opacity duration-500 ${isStyled ? 'opacity-100' : 'opacity-0'}`;
 
     const renderScreen = () => {
@@ -238,46 +232,59 @@ const Calculator = () => {
                                     className="py-3 pr-4"
                                 />
 
-                                {CATEGORIES.map(category => {
-                                    const categoryItems = itemsByCategory[category.id];
-                                    if (!categoryItems || categoryItems.length === 0) return null;
-                                    const isExpanded = !!searchQuery || expandedCategories.has(category.id);
-                                
-                                    return (
-                                        <div
-                                            key={category.id}
-                                            className="bg-white rounded-2xl border border-border dark:border-border-dark mb-6 max-w-full overflow-hidden"
-                                            style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
-                                        >
-                                            <button
-                                                onClick={() => handleToggleCategory(category.id)}
-                                                className={`w-full flex justify-between items-center p-4 sm:p-5 text-left ${!searchQuery ? 'cursor-default' : ''}`}
-                                                aria-expanded={isExpanded}
+                                {loading ? (
+                                    <div className="text-center py-8 text-slate-500">Cargando artículos...</div>
+                                ) : (
+                                    categories.map(category => {
+                                        const categoryItems = searchQuery
+                                            ? itemsByCategory[category.id]?.filter(item =>
+                                                item.name.toLowerCase().includes(searchQuery.toLowerCase())
+                                            )
+                                            : itemsByCategory[category.id];
+                                        if (!categoryItems || categoryItems.length === 0) return null;
+                                        const isExpanded = !!searchQuery || expandedCategories.has(category.id);
+
+                                        return (
+                                            <div
+                                                key={category.id}
+                                                className="bg-white rounded-2xl border border-border dark:border-border-dark mb-6 max-w-full overflow-hidden"
+                                                style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}
                                             >
-                                                <h2 className="text-xl font-bold text-[#012E58]">{category.name}</h2>
-                                                <div className="bg-muted dark:bg-secondary-dark rounded-full p-1">
-                                                    <ChevronDownIcon className={`w-5 h-5 text-text-light text-[#012E58] transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
-                                                </div>
-                                            </button>
-                                            {isExpanded && (
-                                                <div
-                                                    className="px-4 sm:px-5 pb-5 border-t border-border dark:border-slate-700 text-[#012E58]"
+                                                <button
+                                                    onClick={() => handleToggleCategory(category.id)}
+                                                    className={`w-full flex justify-between items-center p-4 sm:p-5 text-left ${!searchQuery ? 'cursor-default' : ''}`}
+                                                    aria-expanded={isExpanded}
                                                 >
-                                                    <div className="pt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
-                                                        {categoryItems.map(item => (
-                                                            <ItemCard
-                                                                key={item.id}
-                                                                item={item}
-                                                                onQuantityChange={updateItemQuantity}
-                                                                onRemove={removeItem}
-                                                            />
-                                                        ))}
+                                                    <h2 className="text-xl font-bold text-[#012E58]">{category.name}</h2>
+                                                    <div className="bg-muted dark:bg-secondary-dark rounded-full p-1">
+                                                        <ChevronDownIcon className={`w-5 h-5 text-text-light text-[#012E58] transform transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''}`} />
                                                     </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    );
-                                })}
+                                                </button>
+                                                {isExpanded && (
+                                                    <div
+                                                        className="px-4 sm:px-5 pb-5 border-t border-border dark:border-slate-700 text-[#012E58]"
+                                                    >
+                                                        <div className="pt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
+                                                            {categoryItems.map(item => {
+                                                                // Busca el artículo en el inventario para obtener el quantity actualizado
+                                                                const inventoryItem = items.find(i => i.id === item.id);
+                                                                const mergedItem = inventoryItem ? { ...item, quantity: inventoryItem.quantity } : { ...item, quantity: 0 };
+                                                                return (
+                                                                    <ItemCard
+                                                                        key={item.id}
+                                                                        item={mergedItem}
+                                                                        onQuantityChange={updateItemQuantity}
+                                                                        onRemove={removeItem}
+                                                                    />
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })
+                                )}
 
                                 <div className="bg-white rounded-2xl border  border-border dark:border-border-dark">
                                     <button onClick={() => setIsAddFormExpanded(p => !p)} className="w-full flex justify-between items-center p-4 sm:p-5 text-left" aria-expanded={isAddFormExpanded}>
@@ -288,7 +295,7 @@ const Calculator = () => {
                                     </button>
                                     {isAddFormExpanded && (
                                         <div className="px-5 sm:px-6 pb-6 border-t border-border dark:border-slate-700">
-                                            <div className="pt-6"><AddItemForm onAddItem={handleAddItem} categories={CATEGORIES} /></div>
+                                            <div className="pt-6"><AddItemForm onAddItem={handleAddItem} categories={categories} /></div>
                                         </div>
                                     )}
                                 </div>

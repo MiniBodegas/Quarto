@@ -3,13 +3,6 @@ import {
     Box1Icon, Box3Icon, Box6Icon, Box12Icon
 } from '../Components/calculator/icons';
 
-export const CATEGORIES = [
-  { id: 'sala', name: 'Sala de estar' },
-  { id: 'comedor_cocina', name: 'Comedor y cocina' },
-  { id: 'dormitorio', name: 'Dormitorio' },
-  { id: 'oficina', name: 'Oficina' },
-  { id: 'varios', name: 'Varios' },
-];
 
 const PREDEFINED_ITEMS_DATA = [
     // Dormitorio
