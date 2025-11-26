@@ -252,8 +252,7 @@ const Calculator = () => {
                                             </button>
                                             {isExpanded && (
                                                 <div
-                                                    className="px-4 sm:px-5 pb-5 border-t border-border dark:border-slate-700"
-                                                    style={{ maxHeight: '400px', overflowY: 'auto' }}
+                                                    className="px-4 sm:px-5 pb-5 border-t border-border dark:border-slate-700 text-[#012E58]"
                                                 >
                                                     <div className="pt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
                                                         {categoryItems.map(item => (
