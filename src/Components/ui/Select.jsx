@@ -16,14 +16,14 @@ const Select = ({
     <div className={containerClassName}>
       <label
         htmlFor={selectId}
-        className={`block font-normal text-slate-900 dark:text-slate-50 mb-2 ${hideLabel ? 'sr-only' : ''} ${labelClassName}`}
+        className={`block font-normal text-[#012E58] dark:text-[#012E58] mb-2 ${hideLabel ? 'sr-only' : ''} ${labelClassName}`}
       >
         {label}
       </label>
       <div className="relative">
         <select
           id={selectId}
-          className={`w-full appearance-none px-4 py-2.5 bg-white dark:bg-slate-900 border border-border dark:border-border-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary dark:focus:ring-primary-dark focus:border-transparent dark:focus:border-transparent transition-colors duration-200 pr-10 ${className}`}
+          className={`w-full appearance-none text-[#012E58] px-4 py-2.5 bg-white dark:bg-white border border-border dark:border-border-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary dark:focus:ring-primary-dark focus:border-transparent dark:focus:border-transparent transition-colors duration-200 pr-10 ${className}`}
           {...props}
         >
           {children}

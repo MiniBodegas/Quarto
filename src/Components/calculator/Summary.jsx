@@ -3,8 +3,8 @@ import {Button,SummaryRow} from '../index';
 
 const Summary = ({ totalVolume, totalItems, selectedItems, onContinue, onClearAll, onRemoveItem }) => {
     return (
-        <div className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-border dark:border-border-dark space-y-4">
-            <h2 className="text-2xl font-bold text-center dark:text-slate-100">Resumen total</h2>
+        <div className="bg-white p-6 rounded-2xl border border-border dark:border-border-dark space-y-4">
+            <h2 className="text-2xl font-bold text-center text-[#074BED]">Resumen total</h2>
 
             <div className="border-t border-b border-slate-200 dark:border-slate-800 my-4">
                 {selectedItems.length > 0 ? (
@@ -25,7 +25,7 @@ const Summary = ({ totalVolume, totalItems, selectedItems, onContinue, onClearAl
                         </ul>
                     </div>
                 ) : (
-                    <p className="text-sm text-center text-slate-500 dark:text-slate-400 py-4">
+                    <p className="text-sm text-center text-[#012E58] dark:text-slate-400 py-4">
                         Añade artículos para ver el resumen.
                     </p>
                 )}
@@ -33,13 +33,13 @@ const Summary = ({ totalVolume, totalItems, selectedItems, onContinue, onClearAl
             
             <SummaryRow 
                 label="Artículos totales:"
-                value={<span className="text-2xl font-bold dark:text-slate-100">{totalItems}</span>}
+                value={<span className="text-2xl font-bold text-[#012E58]">{totalItems}</span>}
             />
 
             <div className="p-6 text-center bg-muted dark:bg-muted-dark rounded-2xl border border-border dark:border-border-dark">
-                <p className="text-sm font-medium text-muted-foreground dark:text-muted-dark-foreground mb-1">Volumen total estimado</p>
-                <p className="text-4xl font-extrabold dark:text-slate-50">
-                    {totalVolume.toFixed(1)} <span className="text-2xl font-semibold opacity-80">m³</span>
+                <p className="text-sm font-medium text-[#012E58] dark:text-[#012E58] mb-1">Volumen total estimado</p>
+                <p className="text-4xl font-extrabold text-[#012E58] dark:text-[#012E58]">
+                    {totalVolume.toFixed(1)} <span className="text-2xl font-semibold opacity-80 text-[#012E58]">m³</span>
                 </p>
             </div>
 

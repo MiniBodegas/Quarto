@@ -40,7 +40,7 @@ const ResultsScreen = ({ totalVolume, totalItems, onBack, onContinue }) => {
         return (
             <button
                 onClick={onSelect}
-                className={`w-full h-full text-left rounded-2xl transition-all duration-200 bg-white dark:bg-slate-900 ${borderClass} ${paddingClass}`}
+                className={`w-full h-full text-left rounded-2xl transition-all duration-200 bg-white dark:bg-white ${borderClass} ${paddingClass}`}
                 aria-pressed={isSelected}
                 aria-label={`Seleccionar opción: ${option.title}`}
             >
@@ -50,10 +50,10 @@ const ResultsScreen = ({ totalVolume, totalItems, onBack, onContinue }) => {
                     </div>
                     <div className="flex flex-col h-full flex-1">
                         <div className="flex-grow">
-                            <h3 className="text-xl font-bold dark:text-slate-100">{option.title}</h3>
-                            <p className="mt-1 text-md text-slate-600 dark:text-slate-400">{option.description}</p>
+                            <h3 className="text-xl font-bold dark:text-[#012E58] text-[#012E58]">{option.title}</h3>
+                            <p className="mt-1 text-md text-[#012E58] dark:text-[#012E58]">{option.description}</p>
                         </div>
-                        <p className="mt-3 text-xs font-semibold text-muted-foreground dark:text-muted-dark-foreground">{option.info}</p>
+                        <p className="mt-3 text-xs font-semibold text-[#012E58] dark:text-[#012E58]">{option.info}</p>
                     </div>
                 </div>
             </button>

@@ -75,9 +75,9 @@ const TransportScreen = ({ totalVolume, onContinue, onBack }) => {
 
                     <div className="flex items-center justify-between">
                          <div>
-                            <label className={`block font-normal text-slate-900 dark:text-slate-50 mb-2 transition-opacity ${hasNoNumber ? 'opacity-50' : 'opacity-100'}`}>Número</label>
+                            <label className={`block font-normal text-[#012E58] dark:text-[#012E58] mb-2 transition-opacity ${hasNoNumber ? 'opacity-50' : 'opacity-100'}`}>Número</label>
                             <div className="flex items-center gap-2">
-                                <span className={`text-slate-500 font-bold transition-opacity ${hasNoNumber ? 'opacity-50' : 'opacity-100'}`}>#</span>
+                                <span className={`text-[#012E58] font-bold transition-opacity ${hasNoNumber ? 'opacity-50' : 'opacity-100'}`}>#</span>
                                 <Input
                                     id="number1-input"
                                     label="Número principal"
@@ -117,7 +117,7 @@ const TransportScreen = ({ totalVolume, onContinue, onBack }) => {
                                 <span className={`material-symbols-outlined mr-2 text-2xl transition-colors ${hasNoNumber ? 'text-primary dark:text-primary-dark' : 'text-slate-500 dark:text-slate-400'}`}>
                                     {hasNoNumber ? 'check_box' : 'check_box_outline_blank'}
                                 </span>
-                                <span className="text-sm text-slate-900 dark:text-slate-50">
+                                <span className="text-sm text-[#012E58] dark:text-[#012E58]">
                                     No tengo número
                                 </span>
                             </label>

@@ -1,10 +1,8 @@
-import React from 'react';
-
 const SummaryRow = ({
     label,
     value,
-    labelClassName = "text-muted-foreground dark:text-muted-dark-foreground",
-    valueClassName = "text-lg font-bold dark:text-slate-100",
+    labelClassName = "text-[#012E58]",
+    valueClassName = "text-lg font-bold text-[#012E58]",
     className = ""
 }) => {
     return (
