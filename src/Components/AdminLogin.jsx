@@ -1,12 +1,18 @@
 import Button from './ui/Button';
 import Card from './ui/Card';
 import { QUARTO_LOGO_BASE64 } from '../utils/constants';
+import { adminLogin } from '../api';
 
 const AdminLogin = ({ onLogin, onGoToClientLogin }) => {
     
-    const handleQuickLogin = () => {
+    const handleQuickLogin = async () => {
         // Auto-login con credenciales hardcodeadas para desarrollo
-        onLogin('admin@quarto.com', 'password123');
+        const result = await adminLogin('admin@quarto.com', 'password123');
+        if (result.success) {
+            onLogin(); // Navega al panel de admin
+        } else {
+            // Muestra error
+        }
     };
 
     return (

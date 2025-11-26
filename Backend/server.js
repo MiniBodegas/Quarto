@@ -91,6 +91,25 @@ app.post('/auth/login', async (req, res) => {
     }
 }); 
 
+// Backend: server.js
+app.post('/auth/admin-login', async (req, res) => {
+  const { email, password } = req.body;
+  // Busca el admin en la tabla
+  const { data, error } = await supabase
+    .from('admins')
+    .select('*')
+    .eq('email', email)
+    .single();
+
+  if (error || !data) return res.status(401).json({ error: 'Usuario no encontrado' });
+
+  // Verifica la contraseña (usa bcrypt si está hasheada)
+  if (data.password !== password) return res.status(401).json({ error: 'Contraseña incorrecta' });
+
+  // Aquí puedes crear una sesión o token si lo necesitas
+  res.json({ success: true, admin: data });
+});
+
 // Register
 app.post('/auth/register', async (req, res) => {
     try {

@@ -1,25 +1,75 @@
-import {AdminLogin, AdminPanel} from '../../Components/index';
+// src/screens/AdminScreen.jsx
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { AdminLogin, AdminPanel } from '../../Components/index';
 
-const AdminScreen = ({
-  isAdminLoggedIn,
-  companyProfiles,
-  loginUsers,
-  allInvoices,
-  allAuthorizedPersons,
-  storageUnits,
-  inventoryItems,
-  inventoryLogs,
-  accessLogs,
-  handleRegisterAccess,
-  handleAdminLogout,
-  handleCreateClient,
-  handleCreateMultipleClients,
-  handleAdminUpdateProfile,
-  handleInventoryMovement,
-  addNotification,
-  handleAdminLogin,
-  setIsAdminMode
-}) => {
+const AdminScreen = () => {
+  const navigate = useNavigate();
+
+  // Estado interno: ¿el admin ya está logueado?
+  const [isAdminLoggedIn, setIsAdminLoggedIn] = useState(false);
+
+  // Estados/datos de ejemplo. En tu proyecto real puedes
+  // reemplazar estos con datos que vengan de APIs, context, etc.
+  const [companyProfiles, setCompanyProfiles] = useState([]);
+  const [loginUsers, setLoginUsers] = useState([]);
+  const [allInvoices, setAllInvoices] = useState([]);
+  const [allAuthorizedPersons, setAllAuthorizedPersons] = useState([]);
+  const [storageUnits, setStorageUnits] = useState([]);
+  const [inventoryItems, setInventoryItems] = useState([]);
+  const [inventoryLogs, setInventoryLogs] = useState([]);
+  const [accessLogs, setAccessLogs] = useState([]);
+
+  // ---------- HANDLERS ----------
+
+  const handleAdminLogin = (credentials) => {
+    // Aquí deberías validar credentials con tu API.
+    // Por ahora, asumimos que siempre loguea bien:
+    console.log('Admin login:', credentials);
+    setIsAdminLoggedIn(true);
+  };
+
+  const handleRegisterAccess = (data) => {
+    console.log('Register access', data);
+    // Aquí podrías actualizar accessLogs, etc.
+  };
+
+  const handleAdminLogout = () => {
+    console.log('Admin logout');
+    setIsAdminLoggedIn(false);
+    // Si quieres que vuelva al login de cliente:
+    // navigate('/user');
+  };
+
+  const handleCreateClient = (client) => {
+    console.log('Create client', client);
+    // setCompanyProfiles(prev => [...prev, client]);
+  };
+
+  const handleCreateMultipleClients = (clients) => {
+    console.log('Create multiple clients', clients);
+  };
+
+  const handleAdminUpdateProfile = (profile) => {
+    console.log('Update client profile', profile);
+  };
+
+  const handleInventoryMovement = (movement) => {
+    console.log('Inventory movement', movement);
+    // setInventoryLogs(prev => [...prev, movement]);
+  };
+
+  const addNotification = (notification) => {
+    console.log('Notification:', notification);
+  };
+
+  const handleGoToClientLogin = () => {
+    // Aquí decides a dónde va el "login de cliente"
+    navigate('/user'); // o '/', según tu app
+  };
+
+  // ---------- RENDER ----------
+
   if (isAdminLoggedIn) {
     return (
       <AdminPanel
@@ -41,10 +91,12 @@ const AdminScreen = ({
       />
     );
   }
+
+  // Si NO está logueado, mostramos el login de admin
   return (
     <AdminLogin
       onLogin={handleAdminLogin}
-      onGoToClientLogin={() => setIsAdminMode(false)}
+      onGoToClientLogin={handleGoToClientLogin}
     />
   );
 };
