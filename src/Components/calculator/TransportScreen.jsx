@@ -3,6 +3,11 @@ import { ArrowLeftIcon } from './icons';
 import { calculateTransportPrice } from '../../utils/pricing';
 import {Input, Select, Button, ScreenHeader} from '../index';
 
+// Función para guardar los datos de transporte en localStorage
+function saveTransportToLocal(data) {
+    localStorage.setItem('quarto_transport', JSON.stringify(data));
+}
+
 const CITIES = ["Cali"];
 const STREET_TYPES = ["Avenida", "Calle", "Carrera", "Transversal", "Diagonal", "Circular"];
 
@@ -28,7 +33,19 @@ const TransportScreen = ({ totalVolume, onContinue, onBack }) => {
     }, [hasNoNumber]);
 
     const handleContinue = () => {
-        if (transportPrice !== null) onContinue(transportPrice);
+        const transportData = {
+            city,
+            street_type: streetType,
+            street_name: streetName,
+            number1,
+            number2,
+            has_no_number: hasNoNumber,
+            complement,
+            total_volume: totalVolume,
+            transport_price: transportPrice,
+        };
+        saveTransportToLocal(transportData); // Guarda en localStorage
+        onContinue(transportPrice);
     };
 
     const isFormValid = streetName.trim() !== '' && (hasNoNumber || (number1.trim() !== '' && number2.trim() !== ''));

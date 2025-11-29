@@ -1,106 +1,187 @@
 import { useState } from 'react';
 import { ArrowLeftIcon } from './icons';
 import { calculateStoragePrice } from '../../utils/pricing';
-import {Button,Input, ScreenHeader} from '../index';
+import { Button, Input, ScreenHeader } from '../index';
 
+const QuoteRequestScreen = ({
+  totalVolume,
+  totalItems,
+  logisticsMethod,
+  transportPrice,
+  selectedItems,
+  onBack,
+}) => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
 
-const QuoteRequestScreen = ({ totalVolume, totalItems, logisticsMethod, transportPrice, selectedItems, onBack }) => {
-    const [name, setName] = useState('');
-    const [email, setEmail] = useState('');
-    const [phone, setPhone] = useState('');
-    
-    const [emailError, setEmailError] = useState('');
-    const [phoneError, setPhoneError] = useState('');
-    
-    const [touched, setTouched] = useState({
-        email: false,
-        phone: false,
-    });
+  const [emailError, setEmailError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
 
-    const handleBlur = (field) => {
-        setTouched(prev => ({ ...prev, [field]: true }));
-        if (field === 'email') validateEmail(email);
-        if (field === 'phone') validatePhone(phone);
+  const [touched, setTouched] = useState({
+    email: false,
+    phone: false,
+  });
+
+  const loadQuoteFromLocalStorage = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const inventory = JSON.parse(
+        localStorage.getItem('quarto_inventory') || '[]'
+      );
+      const logisticsMethodLS =
+        localStorage.getItem('quarto_logistics_method') || null;
+      const transport = JSON.parse(
+        localStorage.getItem('quarto_transport') || 'null'
+      );
+
+      return { inventory, logisticsMethodLS, transport };
+    } catch (error) {
+      console.error('Error leyendo datos de localStorage:', error);
+      return null;
+    }
+  };
+
+  const handleBlur = (field) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    if (field === 'email') validateEmail(email);
+    if (field === 'phone') validatePhone(phone);
+  };
+
+  const validateEmail = (value) => {
+    if (!value) {
+      setEmailError('El correo es obligatorio.');
+      return false;
+    }
+    if (!/\S+@\S+\.\S+/.test(value)) {
+      setEmailError('Por favor, introduce un formato de correo válido.');
+      return false;
+    }
+    setEmailError('');
+    return true;
+  };
+
+  const validatePhone = (value) => {
+    if (!value) {
+      setPhoneError('El teléfono es obligatorio.');
+      return false;
+    }
+    if (value.length !== 10) {
+      setPhoneError('El teléfono debe tener 10 dígitos.');
+      return false;
+    }
+    setPhoneError('');
+    return true;
+  };
+
+  const handleEmailChange = (e) => {
+    const value = e.target.value;
+    setEmail(value);
+    if (touched.email) validateEmail(value);
+  };
+
+  const handlePhoneChange = (e) => {
+    const value = e.target.value.replace(/\D/g, '');
+    if (value.length <= 10) {
+      setPhone(value);
+      if (touched.phone) validatePhone(value);
+    }
+  };
+
+  const formatCurrency = (value) =>
+    new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+
+  const storagePrice = calculateStoragePrice(totalVolume);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    const isNameValid = name.trim() !== '';
+    const isEmailValid = validateEmail(email);
+    const isPhoneValid = validatePhone(phone);
+
+    setTouched({ email: true, phone: true });
+
+    if (!isNameValid || !isEmailValid || !isPhoneValid) {
+      if (!isNameValid) alert('Por favor, ingresa tu nombre completo.');
+      return;
+    }
+
+    // Guarda datos del usuario (por si luego quieres reutilizarlos)
+    localStorage.setItem('quarto_user', JSON.stringify({ name, email, phone }));
+
+    const localData = loadQuoteFromLocalStorage();
+    const finalItems =
+      localData?.inventory && localData.inventory.length > 0
+        ? localData.inventory
+        : selectedItems;
+
+    const finalLogisticsMethod =
+      localData?.logisticsMethodLS || logisticsMethod;
+    const finalTransport = localData?.transport || null;
+
+    const quotePayload = {
+      user: { name, email, phone },
+      items: finalItems,
+      summary: {
+        totalVolume,
+        totalItems,
+        logisticsMethod: finalLogisticsMethod,
+        transportPrice,
+        storagePrice,
+        localStorageVolume: finalTransport?.total_volume ?? null,
+        localStorageTransportPrice:
+          finalTransport?.transport_price ?? null,
+      },
+      logistics: {
+        method: finalLogisticsMethod,
+        transport: finalTransport,
+      },
+      meta: {
+        source: 'quarto-calculator',
+        createdAt: new Date().toISOString(),
+      },
     };
 
-    const validateEmail = (value) => {
-        if (!value) {
-            setEmailError('El correo es obligatorio.');
-            return false;
-        }
-        if (!/\S+@\S+\.\S+/.test(value)) {
-            setEmailError('Por favor, introduce un formato de correo válido.');
-            return false;
-        }
-        setEmailError('');
-        return true;
-    };
+    console.log('Enviando cotización:', quotePayload);
 
-    const validatePhone = (value) => {
-        if (!value) {
-            setPhoneError('El teléfono es obligatorio.');
-            return false;
-        }
-        if (value.length !== 10) {
-            setPhoneError('El teléfono debe tener 10 dígitos.');
-            return false;
-        }
-        setPhoneError('');
-        return true;
-    };
+    try {
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-    const handleEmailChange = (e) => {
-        const value = e.target.value;
-        setEmail(value);
-        if (touched.email) {
-            validateEmail(value);
-        }
-    };
-    
-    const handlePhoneChange = (e) => {
-        const value = e.target.value.replace(/\D/g, '');
-        if (value.length <= 10) {
-            setPhone(value);
-            if (touched.phone) {
-                validatePhone(value);
-            }
-        }
-    };
+      const response = await fetch(`${API_URL}/api/quotes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(quotePayload),
+      });
 
-    const formatCurrency = (value) => {
-        return new Intl.NumberFormat('es-CO', {
-            style: 'currency',
-            currency: 'COP',
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0
-        }).format(value);
-    };
+      console.log('Respuesta del backend:', response);
 
-    const storagePrice = calculateStoragePrice(totalVolume);
+      if (!response.ok) {
+        throw new Error(`Error al guardar la cotización: ${response.status}`);
+      }
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
+      const itemList = finalItems
+        .map(
+          (item) =>
+            `• ${item.name} (Cantidad: ${
+              item.quantity
+            }, Volumen: ${(item.volume * item.quantity).toFixed(1)} m³)`
+        )
+        .join('\n');
 
-        const isNameValid = name.trim() !== '';
-        const isEmailValid = validateEmail(email);
-        const isPhoneValid = validatePhone(phone);
-        
-        setTouched({ email: true, phone: true });
+      const transportInfo =
+        finalLogisticsMethod === 'Recogida' &&
+        finalTransport?.transport_price != null
+          ? formatCurrency(finalTransport.transport_price)
+          : 'N/A (Entrega en bodega)';
 
-        if (!isNameValid || !isEmailValid || !isPhoneValid) {
-            if (!isNameValid) alert('Por favor, ingresa tu nombre completo.');
-            return;
-        }
-
-        const itemList = selectedItems
-            .map(item => `• ${item.name} (Cantidad: ${item.quantity}, Volumen: ${(item.volume * item.quantity).toFixed(1)} m³)`).join('\n');
-            
-        const transportInfo = logisticsMethod === 'Recogida' && transportPrice !== null 
-            ? formatCurrency(transportPrice) 
-            : 'N/A (Entrega en bodega)';
-
-        const subject = `Cotización de Almacenamiento - Quarto [${name}]`;
-        const body = `Hola ${name},
+      const subject = `Cotización de Almacenamiento - Quarto [${name}]`;
+      const body = `Hola ${name},
 
 ¡Gracias por utilizar nuestra calculadora!
 
@@ -118,7 +199,11 @@ Aquí tienes una copia de tu cotización para tus registros:
   •  **Teléfono:** ${phone}
 
 **Detalles del Servicio:**
-  •  **Método de Logística:** ${logisticsMethod === 'Recogida' ? 'Recogida por Quarto' : 'Entrega directa en bodega'}
+  •  **Método de Logística:** ${
+        finalLogisticsMethod === 'Recogida'
+          ? 'Recogida por Quarto'
+          : 'Entrega directa en bodega'
+      }
   •  **Volumen Total Estimado:** ${totalVolume.toFixed(1)} m³
   •  **Total de Artículos:** ${totalItems}
 
@@ -140,76 +225,88 @@ Saludos cordiales,
 
 El equipo de Quarto.`;
 
-        const mailtoLink = `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-        window.location.href = mailtoLink;
-        alert('Tu cotización ha sido generada y se abrirá en tu cliente de correo. ¡Gracias!');
-    };
+      const mailtoLink = `mailto:${email}?subject=${encodeURIComponent(
+        subject
+      )}&body=${encodeURIComponent(body)}`;
+      window.location.href = mailtoLink;
 
-    return (
-        <div className="min-h-screen flex flex-col">
-            <main className="container mx-auto max-w-4xl p-4 sm:p-6 lg:p-8 flex-grow flex flex-col">
-                 <ScreenHeader 
-                    title="Enviar cotización por correo"
-                    subtitle="Completa tus datos para recibir una copia detallada de tu cotización."
-                />
+      alert(
+        'Tu cotización ha sido guardada y se abrirá en tu cliente de correo. ¡Gracias!'
+      );
+    } catch (error) {
+      console.error('Error en el fetch:', error);
+      alert(
+        'Ocurrió un error al guardar tu cotización. Intenta de nuevo más tarde.'
+      );
+    }
+  };
 
-                <form onSubmit={handleSubmit} className="space-y-8 max-w-lg mx-auto w-full">
-                    <div className="space-y-6">
-                        <Input
-                            id="name"
-                            label="Nombre completo"
-                            type="text"
-                            value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            placeholder="Ej: Ana María"
-                            required
-                            autoComplete="name"
-                        />
-                        <Input
-                            id="email"
-                            label="Correo electrónico"
-                            type="email"
-                            value={email}
-                            onChange={handleEmailChange}
-                            onBlur={() => handleBlur('email')}
-                            placeholder="Ej: ana.maria@correo.com"
-                            required
-                            autoComplete="email"
-                            error={touched.email ? emailError : ''}
-                        />
-                        <Input
-                            id="phone"
-                            label="Teléfono"
-                            type="tel"
-                            inputMode="numeric"
-                            value={phone}
-                            onChange={handlePhoneChange}
-                            onBlur={() => handleBlur('phone')}
-                            placeholder="Ej: 3001234567"
-                            required
-                            autoComplete="tel"
-                            maxLength={10}
-                            error={touched.phone ? phoneError : ''}
-                        />
-                    </div>
+  return (
+    <div className="min-h-screen flex flex-col">
+      <main className="container mx-auto max-w-4xl p-4 sm:p-6 lg:p-8 flex-grow flex flex-col">
+        <ScreenHeader
+          title="Enviar cotización por correo"
+          subtitle="Completa tus datos para recibir una copia detallada de tu cotización."
+        />
 
-                    <div className="mt-12 text-center space-y-4 sm:space-y-0 sm:flex sm:flex-row-reverse sm:justify-center sm:space-x-4 sm:space-x-reverse">
-                        <Button type="submit">
-                            Enviar cotización
-                        </Button>
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={onBack}
-                            icon={<ArrowLeftIcon className="w-5 h-5"/>}
-                        >
-                            Volver
-                        </Button>
-                    </div>
-                </form>
-            </main>
-        </div>
-    );
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-8 max-w-lg mx-auto w-full"
+        >
+          <div className="space-y-6">
+            <Input
+              id="name"
+              label="Nombre completo"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Ej: Ana María"
+              required
+              autoComplete="name"
+            />
+            <Input
+              id="email"
+              label="Correo electrónico"
+              type="email"
+              value={email}
+              onChange={handleEmailChange}
+              onBlur={() => handleBlur('email')}
+              placeholder="Ej: ana.maria@correo.com"
+              required
+              autoComplete="email"
+              error={touched.email ? emailError : ''}
+            />
+            <Input
+              id="phone"
+              label="Teléfono"
+              type="tel"
+              inputMode="numeric"
+              value={phone}
+              onChange={handlePhoneChange}
+              onBlur={() => handleBlur('phone')}
+              placeholder="Ej: 3001234567"
+              required
+              autoComplete="tel"
+              maxLength={10}
+              error={touched.phone ? phoneError : ''}
+            />
+          </div>
+
+          <div className="mt-12 text-center space-y-4 sm:space-y-0 sm:flex sm:flex-row-reverse sm:justify-center sm:space-x-4 sm:space-x-reverse">
+            <Button type="submit">Enviar cotización</Button>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={onBack}
+              icon={<ArrowLeftIcon className="w-5 h-5" />}
+            >
+              Volver
+            </Button>
+          </div>
+        </form>
+      </main>
+    </div>
+  );
 };
 
 export default QuoteRequestScreen;

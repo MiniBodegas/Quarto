@@ -5,7 +5,6 @@ import { AddItemForm, Summary, ConfirmModal, ItemCard, ResultsScreen, TransportS
 import { SearchIcon, ChevronDownIcon } from '../../Components/calculator/icons';
 import {saveCustomItem} from '../../services/saveCustomItem';
 
-
 // --- State Management with Reducer ---
 
 const initialState = {
@@ -58,7 +57,6 @@ function appReducer(state, action) {
 }
 
 // --- Main App Component ---
-
 const Calculator = () => {
     const [state, dispatch] = useReducer(appReducer, initialState);
     const { items, updateItemQuantity, addItem, removeItem, clearAll } = useInventory();
@@ -306,7 +304,10 @@ const Calculator = () => {
                                     totalVolume={totalVolume} 
                                     totalItems={totalItems} 
                                     selectedItems={selectedItems}
-                                    onContinue={() => dispatch({ type: 'NAVIGATE_TO', payload: 'logistics' })}
+                                    onContinue={() => {
+                                        saveInventoryToLocal(selectedItems); // Guarda en localStorage al continuar
+                                        dispatch({ type: 'NAVIGATE_TO', payload: 'logistics' });
+                                    }}
                                     onClearAll={handleClearAll}
                                     onRemoveItem={handleRemoveSelectedItem}
                                 />
@@ -337,3 +338,8 @@ const Calculator = () => {
 };
 
 export default Calculator;
+
+// Función para guardar el inventario en localStorage
+function saveInventoryToLocal(items) {
+    localStorage.setItem('quarto_inventory', JSON.stringify(items));
+}

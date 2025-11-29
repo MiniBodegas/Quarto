@@ -30,6 +30,12 @@ const ResultsScreen = ({ totalVolume, totalItems, onBack, onContinue }) => {
         }
     ];
 
+    const handleContinue = (method) => {
+        localStorage.setItem('quarto_logistics_method', method);
+        // Navega al formulario de dirección/transporte, aunque sea "En bodega"
+        onContinue(method);
+    };
+
     const OptionCard = ({ option, isSelected, onSelect }) => {
         const borderClass = isSelected
             ? 'border-2 border-primary dark:border-primary-dark'
@@ -86,7 +92,7 @@ const ResultsScreen = ({ totalVolume, totalItems, onBack, onContinue }) => {
 
             <div className="mt-12 text-center space-y-4 sm:space-y-0 sm:flex sm:flex-row-reverse sm:justify-center sm:space-x-4 sm:space-x-reverse">
                  <Button
-                    onClick={() => selectedMethod && onContinue(selectedMethod)}
+                    onClick={() => selectedMethod && handleContinue(selectedMethod)}
                     disabled={!selectedMethod}
                 >
                     Continuar
