@@ -167,23 +167,17 @@ const BookingScreen = ({
       booking_type: bookingType,
       company_name: bookingType === 'company' ? companyName : null,
       company_nit: bookingType === 'company' ? companyNit : null,
-
       name,
       email,
       phone,
       document_type: documentType,
       document_number: documentNumber,
-
-      date, // fecha seleccionada
-      time_slot: timeSlot, // "AM" / "PM"
-
+      date,
+      time_slot: timeSlot,
       total_items: finalTotalItems,
       total_volume: finalTotalVolume,
       logistics_method: finalLogisticsMethod,
       transport_price: transport?.transport_price ?? transportPrice ?? null,
-
-      inventory, // jsonb: lo que hay en quarto_inventory
-      transport, // jsonb: lo de quarto_transport
     };
 
     console.log('Guardando reserva en Supabase:', bookingPayload);
