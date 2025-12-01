@@ -3,6 +3,7 @@ import { useInventory } from '../../Hooks/useInventory';
 import { useItemsByCategory } from '../../Hooks/useItemsByCategory';
 import { AddItemForm, Summary, ConfirmModal, ItemCard, ResultsScreen, TransportScreen, FinalSummaryScreen, QuoteRequestScreen, BookingScreen, ConfirmationScreen, ScreenHeader, Input, Button } from '../../Components';
 import { SearchIcon, ChevronDownIcon } from '../../Components/calculator/icons';
+import {InventoryPhotoScreen} from '../index';
 import {saveCustomItem} from '../../services/saveCustomItem';
 
 // --- State Management with Reducer ---
@@ -18,6 +19,10 @@ function appReducer(state, action) {
     switch (action.type) {
         case 'NAVIGATE_TO':
             return { ...state, view: action.payload };
+
+            case 'SELECT_ITEMS':
+            return { ...state, view: 'inventoryPhotos' };
+
         case 'SELECT_LOGISTICS':
             return {
                 ...state,
@@ -32,8 +37,10 @@ function appReducer(state, action) {
             return { ...initialState };
         case 'GO_BACK': {
             switch (state.view) {
+                case 'inventoryPhotos':
+                    return { ...state, view: 'calculator' };
                 case 'logistics':
-                    return { ...initialState };
+                    return { ...initialState, view: 'inventoryPhotos' };
                 case 'transport':
                     return { ...state, view: 'logistics', transportPrice: null };
                 case 'finalSummary':
@@ -82,6 +89,11 @@ const Calculator = () => {
     // Si tienes lógica de autenticación, aquí lo actualizas cuando el usuario se registre/inicie sesión
     // Ejemplo:
     // userId = session?.user?.id;
+
+    // Función para guardar el inventario en localStorage
+    function saveInventoryToLocal(items) {
+    localStorage.setItem('quarto_inventory', JSON.stringify(items));
+}
 
     const handleAddItem = useCallback((newItemData) => {
         const fullNewItem = addItem({ ...newItemData, isCustom: true });
@@ -147,6 +159,18 @@ const Calculator = () => {
 
     const renderScreen = () => {
         switch (state.view) {
+            case 'inventoryPhotos':
+                return (
+                    <InventoryPhotoScreen
+                        selectedItems={selectedItems}
+                        onBack={() => dispatch({ type: 'GO_BACK' })}
+                        onContinue={(photos) => {
+                            // Guarda las fotos en localStorage o en el estado global
+                            localStorage.setItem('quarto_inventory_photos', JSON.stringify(photos));
+                            dispatch({ type: 'NAVIGATE_TO', payload: 'logistics' });
+                        }}
+                    />
+                )
             case 'logistics':
                 return (
                     <ResultsScreen 
@@ -306,7 +330,7 @@ const Calculator = () => {
                                     selectedItems={selectedItems}
                                     onContinue={() => {
                                         saveInventoryToLocal(selectedItems); // Guarda en localStorage al continuar
-                                        dispatch({ type: 'NAVIGATE_TO', payload: 'logistics' });
+                                        dispatch({ type: 'NAVIGATE_TO', payload: 'inventoryPhotos' });
                                     }}
                                     onClearAll={handleClearAll}
                                     onRemoveItem={handleRemoveSelectedItem}
@@ -339,7 +363,3 @@ const Calculator = () => {
 
 export default Calculator;
 
-// Función para guardar el inventario en localStorage
-function saveInventoryToLocal(items) {
-    localStorage.setItem('quarto_inventory', JSON.stringify(items));
-}

@@ -14,6 +14,22 @@ const TIME_SLOTS = [
   { value: 'PM', label: 'Tarde (1pm - 5pm)' },
 ];
 
+
+function generateShortCode() {
+  // Ejemplo: 6 caracteres alfanuméricos
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+function base64ToBlob(base64) {
+  const arr = base64.split(',');
+  const mime = arr[0].match(/:(.*?);/)[1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) u8arr[n] = bstr.charCodeAt(n);
+  return new Blob([u8arr], { type: mime });
+}
+
 const BookingScreen = ({
   totalVolume,
   totalItems,
@@ -148,8 +164,9 @@ const BookingScreen = ({
       return;
     }
 
-    // ✅ Cargar datos del localStorage (inventario, logística, transporte)
+    // ✅ Cargar datos del localStorage (inventario, logística, transporte, fotos)
     const { inventory, logisticsMethodLS, transport } = loadFromLocalStorage();
+    const photos = JSON.parse(localStorage.getItem('quarto_inventory_photos') || '{}');
 
     const finalLogisticsMethod = logisticsMethodLS || logisticsMethod;
     const finalTotalItems =
@@ -177,7 +194,7 @@ const BookingScreen = ({
       total_items: finalTotalItems,
       total_volume: finalTotalVolume,
       logistics_method: finalLogisticsMethod,
-      transport_price: transport?.transport_price ?? transportPrice ?? null,
+      transport_price: finalLogisticsMethod === 'En bodega' ? 0 : (transport?.transport_price ?? transportPrice ?? null),
     };
 
     console.log('Guardando reserva en Supabase:', bookingPayload);
@@ -191,16 +208,23 @@ const BookingScreen = ({
         .single();
       const userId = userData.id;
 
-      // 2. Insertar transporte
-      const { data: transportData } = await supabase
-        .from('transports')
-        .insert([{ ...transport, user_id: userId }])
-        .select()
-        .single();
-      const transportId = transportData.id;
+      let transportId = null;
+      if (logisticsMethod === 'Recogida') {
+        // Solo guarda transporte si es recogida
+        const { data: transportData, error: transportError } = await supabase
+          .from('transports')
+          .insert([{ ...transport, user_id: userId }])
+          .select()
+          .single();
+        if (transportError) {
+          // manejar error
+          return;
+        }
+        transportId = transportData.id;
+      }
 
-      // 3. Insertar booking
-      const { data: bookingData } = await supabase
+      // Al guardar booking, transport_id puede ser null
+      const { data: bookingData, error: bookingError } = await supabase
         .from('bookings')
         .insert([{ ...bookingPayload, user_id: userId, transport_id: transportId }])
         .select()
@@ -208,12 +232,13 @@ const BookingScreen = ({
       const bookingId = bookingData.id;
 
       // 4. (Opcional) Actualizar transporte con booking_id
-      await supabase
-        .from('transports')
-        .update({ booking_id: bookingId })
-        .eq('id', transportId);
+      if (transportId) {2
+        await supabase
+          .from('transports')
+          .update({ booking_id: bookingId })
+          .eq('id', transportId);
+      }
 
-      // Insertar cada artículo en la tabla inventory
       for (const item of inventory) {
         const inventoryPayload = {
           booking_id: bookingId,
@@ -222,18 +247,39 @@ const BookingScreen = ({
           quantity: item.quantity ?? 1,
           volume: item.volume ?? 0,
           is_custom: item.isCustom ?? false,
-          short_code: generateShortCode(), // 👈 ID corto y único
+          short_code: generateShortCode(),
         };
-        console.log('Insertando en inventory:', inventoryPayload);
-
-        const { error } = await supabase
+        const { data: invData, error: invError } = await supabase
           .from('inventory')
-          .insert([inventoryPayload]);
+          .insert([inventoryPayload])
+          .select()
+          .single();
 
-        if (error) {
-          console.error('Error al insertar en inventory:', error);
+        if (invError) {
+          console.error('Error al insertar en inventory:', invError);
           alert('Error al guardar el inventario. Revisa los datos.');
           break;
+        }
+
+        const base64 = photos[item.id];
+        console.log('DEBUG - base64:', base64, typeof base64);
+
+        if (base64) {
+          const blob = base64ToBlob(base64);
+          console.log('DEBUG - Blob:', blob, blob.size, blob.type);
+
+          if (blob.size > 0) {
+            const { data, error } = await supabase.storage
+              .from('Inventory')
+              .upload(`booking_${bookingId}/item_${invData.id}.jpg`, blob, { upsert: true });
+
+            console.log('DEBUG - Storage response:', data, error);
+
+            if (error) {
+              alert('Error al subir imagen: ' + error.message);
+              console.error('Error al subir imagen:', error);
+            }
+          }
         }
       }
 
@@ -428,8 +474,3 @@ const BookingScreen = ({
 };
 
 export default BookingScreen;
-
-function generateShortCode() {
-  // Ejemplo: 6 caracteres alfanuméricos
-  return Math.random().toString(36).substring(2, 8).toUpperCase();
-}

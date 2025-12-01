@@ -45,3 +45,5 @@ export {default as Select} from './ui/Select'
 export {default as SummaryRow} from './ui/SummaryRow'
 
 export {default as ConfirmModal} from './calculator/ConfirmModal'
+
+export { default as InventoryPhoto} from './calculator/Inventory';
