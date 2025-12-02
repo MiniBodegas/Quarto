@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import supabase from '../supabase';
 
-function useItemsByCategory() {
+export function useItemsByCategory() {
     const [categories, setCategories] = useState([]);
     const [itemsByCategory, setItemsByCategory] = useState({});
     const [loading, setLoading] = useState(true);
@@ -50,5 +50,3 @@ function useItemsByCategory() {
 
     return { categories, itemsByCategory, loading };
 }
-
-export default useItemsByCategory;
