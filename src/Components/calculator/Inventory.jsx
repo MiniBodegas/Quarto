@@ -1,6 +1,6 @@
 const InventoryPhoto = ({ selectedItems = [], onContinue, onBack, handlePhotoChange, photos = {} }) => (
   <div className="container mx-auto max-w-2xl p-4">
-    <h2 className="text-xl font-bold mb-6">Sube fotos de tus artículos</h2>
+    <h2 className="text-xl font-bold mb-6 text-[#012E58]">Sube fotos de tus artículos</h2>
     <div className="flex flex-wrap gap-6 justify-center">
       {selectedItems.map(item => (
         <div

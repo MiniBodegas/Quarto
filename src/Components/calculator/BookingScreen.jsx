@@ -239,70 +239,56 @@ const BookingScreen = ({
           .eq('id', transportId);
       }
 
+      const inventory = JSON.parse(localStorage.getItem('quarto_inventory') || '[]');
       for (const item of inventory) {
+        let customItemId = null;
+
+        if (item.isCustom) {
+          // 1. Inserta el custom item SIN user_id
+          const { data: customData, error: customError } = await supabase
+            .from('custom_items')
+            .insert([{
+              name: item.name,
+              width: item.width,
+              height: item.height,
+              depth: item.depth,
+              volume: item.volume,
+              // user_id: null
+            }])
+            .select()
+            .single();
+
+          if (customError) {
+            console.error('Error al guardar custom item:', customError);
+            continue;
+          }
+          customItemId = customData.id;
+
+          // 2. Actualiza el custom item con el user_id
+          if (userId) {
+            await supabase
+              .from('custom_items')
+              .update({ user_id: userId })
+              .eq('id', customItemId);
+          }
+        }
+
+        // Inserta en inventory, asociando el custom_item_id si aplica
         const inventoryPayload = {
           booking_id: bookingId,
-          item_id: item.id && /^[0-9a-fA-F-]{36}$/.test(item.id) ? item.id : null,
+          item_id: item.id && !item.isCustom ? item.id : null,
+          custom_item_id: customItemId, // null si no es custom
           name: item.name,
           quantity: item.quantity ?? 1,
           volume: item.volume ?? 0,
           is_custom: item.isCustom ?? false,
           short_code: generateShortCode(),
+          // image_url: ... si tienes imagen
         };
-        const { data: invData, error: invError } = await supabase
+
+        await supabase
           .from('inventory')
-          .insert([inventoryPayload])
-          .select()
-          .single();
-
-        if (invError) {
-          console.error('Error al insertar en inventory:', invError);
-          alert('Error al guardar el inventario. Revisa los datos.');
-          break;
-        }
-
-        const base64 = photos[item.id];
-        console.log('DEBUG - base64:', base64, typeof base64);
-
-        if (base64) {
-        const blob = base64ToBlob(base64);
-        console.log('DEBUG - Blob:', blob, blob.size, blob.type);
-
-        if (blob.size > 0) {
-          const filePath = `booking_${bookingId}/item_${invData.id}.jpg`;
-
-          const { data: uploadData, error: uploadError } = await supabase.storage
-            .from('Inventory')
-            .upload(filePath, blob, { upsert: true });
-
-          console.log('DEBUG - Storage response:', uploadData, uploadError);
-
-          if (uploadError) {
-            alert('Error al subir imagen: ' + uploadError.message);
-            console.error('Error al subir imagen:', uploadError);
-          } else {
-            // 1️⃣ Obtener el public URL del archivo
-            const { data: publicData } = supabase.storage
-              .from('Inventory')
-              .getPublicUrl(filePath);
-
-            const publicUrl = publicData?.publicUrl;
-            console.log('DEBUG - Public URL:', publicUrl);
-
-            // 2️⃣ Actualizar la fila en la tabla inventory con ese URL
-            if (publicUrl) {
-              const { error: updateError } = await supabase
-                .from('inventory')              // 👈 nombre de tu tabla
-                .update({ image_url: publicUrl }) // 👈 cambia image_url si tu columna se llama distinto
-                .eq('id', invData.id);           // usamos el id que nos devolvió el insert
-
-              if (updateError) {
-                console.error('Error al actualizar inventory con image_url:', updateError);
-              }
-            }
-          }
-        }
-      }
+          .insert([inventoryPayload]);
       }
 
       // Opcional: guardar algo en localStorage

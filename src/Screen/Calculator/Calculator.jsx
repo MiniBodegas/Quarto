@@ -96,13 +96,12 @@ const Calculator = () => {
 
     const handleAddItem = useCallback((newItemData) => {
         const fullNewItem = addItem({ ...newItemData, isCustom: true });
-        // Solo guarda en la DB si tienes el userId
-        if (typeof userId !== 'undefined' && userId) {
-            saveCustomItem(fullNewItem, userId);
-        }
+        // Guarda el inventario actualizado en localStorage
+        const updatedItems = [...items, fullNewItem];
+        localStorage.setItem('quarto_inventory', JSON.stringify(updatedItems));
         setExpandedCategories(prev => new Set(prev).add(fullNewItem.categoryId));
         setIsAddFormExpanded(false);
-    }, [addItem, userId]);
+    }, [addItem, items]);
 
     const handleClearAll = useCallback(() => {
         setShowConfirmModal(true);
