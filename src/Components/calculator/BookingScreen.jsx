@@ -265,22 +265,44 @@ const BookingScreen = ({
         console.log('DEBUG - base64:', base64, typeof base64);
 
         if (base64) {
-          const blob = base64ToBlob(base64);
-          console.log('DEBUG - Blob:', blob, blob.size, blob.type);
+        const blob = base64ToBlob(base64);
+        console.log('DEBUG - Blob:', blob, blob.size, blob.type);
 
-          if (blob.size > 0) {
-            const { data, error } = await supabase.storage
+        if (blob.size > 0) {
+          const filePath = `booking_${bookingId}/item_${invData.id}.jpg`;
+
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('Inventory')
+            .upload(filePath, blob, { upsert: true });
+
+          console.log('DEBUG - Storage response:', uploadData, uploadError);
+
+          if (uploadError) {
+            alert('Error al subir imagen: ' + uploadError.message);
+            console.error('Error al subir imagen:', uploadError);
+          } else {
+            // 1️⃣ Obtener el public URL del archivo
+            const { data: publicData } = supabase.storage
               .from('Inventory')
-              .upload(`booking_${bookingId}/item_${invData.id}.jpg`, blob, { upsert: true });
+              .getPublicUrl(filePath);
 
-            console.log('DEBUG - Storage response:', data, error);
+            const publicUrl = publicData?.publicUrl;
+            console.log('DEBUG - Public URL:', publicUrl);
 
-            if (error) {
-              alert('Error al subir imagen: ' + error.message);
-              console.error('Error al subir imagen:', error);
+            // 2️⃣ Actualizar la fila en la tabla inventory con ese URL
+            if (publicUrl) {
+              const { error: updateError } = await supabase
+                .from('inventory')              // 👈 nombre de tu tabla
+                .update({ image_url: publicUrl }) // 👈 cambia image_url si tu columna se llama distinto
+                .eq('id', invData.id);           // usamos el id que nos devolvió el insert
+
+              if (updateError) {
+                console.error('Error al actualizar inventory con image_url:', updateError);
+              }
             }
           }
         }
+      }
       }
 
       // Opcional: guardar algo en localStorage
