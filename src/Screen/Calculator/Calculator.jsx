@@ -1,6 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useReducer } from 'react';
-import {useItemsByCategory} from '../../hooks/useItemsByCategory'
-import { useInventory } from '../../Hooks/useInventory';
+
 import { AddItemForm, Summary, ConfirmModal, ItemCard, ResultsScreen, TransportScreen, FinalSummaryScreen, QuoteRequestScreen, BookingScreen, ConfirmationScreen, ScreenHeader, Input, Button } from '../../Components';
 import { SearchIcon, ChevronDownIcon } from '../../Components/calculator/icons';
 import {InventoryPhotoScreen} from '../index';
