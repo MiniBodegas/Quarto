@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient('https://potowvactzxmbgqgsgyo.supabase.co', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvdG93dmFjdHp4bWJncWdzZ3lvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NDAwNzAzMSwiZXhwIjoyMDc5NTgzMDMxfQ.LkQhHD8YohsbB_JTAaJ0il1QgNqN1DLRBrVDQLotTL0');
+import supabase from '../supabase';
 
 function useItemsByCategory() {
     const [categories, setCategories] = useState([]);
