@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeftIcon } from './icons';
-import { calculateStoragePrice } from '../../utils/pricing';
-import { Button, Input, ScreenHeader } from '../index';
+import { ScreenHeader, Button, Input } from '../index';
+import { supabase } from '../../supabase';
 
 const QuoteRequestScreen = ({
   totalVolume,
@@ -14,31 +14,19 @@ const QuoteRequestScreen = ({
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-
   const [emailError, setEmailError] = useState('');
   const [phoneError, setPhoneError] = useState('');
+  const [touched, setTouched] = useState({ email: false, phone: false });
 
-  const [touched, setTouched] = useState({
-    email: false,
-    phone: false,
-  });
-
-  const loadQuoteFromLocalStorage = () => {
-    if (typeof window === 'undefined') return null;
+  const loadFromLocalStorage = () => {
     try {
-      const inventory = JSON.parse(
-        localStorage.getItem('quarto_inventory') || '[]'
-      );
-      const logisticsMethodLS =
-        localStorage.getItem('quarto_logistics_method') || null;
-      const transport = JSON.parse(
-        localStorage.getItem('quarto_transport') || 'null'
-      );
-
+      const inventory = JSON.parse(localStorage.getItem('quarto_inventory') || '[]');
+      const logisticsMethodLS = localStorage.getItem('quarto_logistics_method') || null;
+      const transport = JSON.parse(localStorage.getItem('quarto_transport') || 'null');
       return { inventory, logisticsMethodLS, transport };
     } catch (error) {
-      console.error('Error leyendo datos de localStorage:', error);
-      return null;
+      console.error('Error leyendo datos desde localStorage:', error);
+      return { inventory: [], logisticsMethodLS: null, transport: null };
     }
   };
 
@@ -88,15 +76,11 @@ const QuoteRequestScreen = ({
     }
   };
 
-  const formatCurrency = (value) =>
-    new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value);
+  const isUuid = (v) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v || '');
 
-  const storagePrice = calculateStoragePrice(totalVolume);
+  const generateShortCode = (prefix = '') =>
+    `${(prefix || '').slice(0, 4)}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -112,196 +96,190 @@ const QuoteRequestScreen = ({
       return;
     }
 
-    // Guarda datos del usuario (por si luego quieres reutilizarlos)
-    localStorage.setItem('quarto_user', JSON.stringify({ name, email, phone }));
-
-    const localData = loadQuoteFromLocalStorage();
-    const finalItems =
-      localData?.inventory && localData.inventory.length > 0
-        ? localData.inventory
-        : selectedItems;
-
-    const finalLogisticsMethod =
-      localData?.logisticsMethodLS || logisticsMethod;
-    const finalTransport = localData?.transport || null;
-
-    const quotePayload = {
-      user: { name, email, phone },
-      items: finalItems,
-      summary: {
-        totalVolume,
-        totalItems,
-        logisticsMethod: finalLogisticsMethod,
-        transportPrice,
-        storagePrice,
-        localStorageVolume: finalTransport?.total_volume ?? null,
-        localStorageTransportPrice:
-          finalTransport?.transport_price ?? null,
-      },
-      logistics: {
-        method: finalLogisticsMethod,
-        transport: finalTransport,
-      },
-      meta: {
-        source: 'quarto-calculator',
-        createdAt: new Date().toISOString(),
-      },
-    };
-
-    console.log('Enviando cotización:', quotePayload);
+    const { inventory, logisticsMethodLS, transport } = loadFromLocalStorage();
+    const finalLogisticsMethod = logisticsMethodLS || logisticsMethod;
+    const finalTotalItems = totalItems ?? inventory.reduce((sum, item) => sum + (item.quantity ?? 1), 0);
+    const finalTotalVolume = totalVolume ?? inventory.reduce((sum, item) => sum + (item.volume ?? 0) * (item.quantity ?? 1), 0);
 
     try {
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      // 1. Guarda el transporte si el método es "Recogida" (sin user_id por ahora)
+      let transportId = null;
+      if (finalLogisticsMethod === 'Recogida' && transport) {
+        const { data: transportData, error: transportError } = await supabase
+          .from('transports')
+          .insert([{
+            city: transport.city,
+            street_type: transport.street_type,
+            street_name: transport.street_name,
+            number1: transport.number1,
+            number2: transport.number2,
+            has_no_number: transport.has_no_number || false,
+            complement: transport.complement,
+            total_volume: transport.total_volume,
+            transport_price: transport.transport_price,
+            user_id: null, // Se actualizará después
+          }])
+          .select()
+          .single();
 
-      const response = await fetch(`${API_URL}/api/quotes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(quotePayload),
-      });
-
-      console.log('Respuesta del backend:', response);
-
-      if (!response.ok) {
-        throw new Error(`Error al guardar la cotización: ${response.status}`);
+        if (transportError) {
+          alert('Error al guardar el transporte: ' + transportError.message);
+          return;
+        }
+        transportId = transportData.id;
       }
 
-      const itemList = finalItems
-        .map(
-          (item) =>
-            `• ${item.name} (Cantidad: ${
-              item.quantity
-            }, Volumen: ${(item.volume * item.quantity).toFixed(1)} m³)`
-        )
-        .join('\n');
+      // 2. Guarda la cotización en quotes (sin selected_items)
+      const { data: quote, error: quoteError } = await supabase
+        .from('quotes')
+        .insert([{
+          name,
+          email,
+          phone,
+          total_volume: finalTotalVolume,
+          total_items: finalTotalItems,
+          logistics_method: finalLogisticsMethod,
+          transport_price: finalLogisticsMethod === 'Recogida'
+            ? (transport?.transport_price ?? transportPrice)
+            : 0,
+          user_id: null,
+          Trasnport_id: transportId,
+        }])
+        .select()
+        .single();
 
-      const transportInfo =
-        finalLogisticsMethod === 'Recogida' &&
-        finalTransport?.transport_price != null
-          ? formatCurrency(finalTransport.transport_price)
-          : 'N/A (Entrega en bodega)';
-
-      const subject = `Cotización de Almacenamiento - Quarto [${name}]`;
-      const body = `Hola ${name},
-
-¡Gracias por utilizar nuestra calculadora!
-
-Hemos generado una cotización basada en la información que proporcionaste. Un especialista de nuestro equipo se pondrá en contacto contigo muy pronto para resolver cualquier duda y coordinar los siguientes pasos.
-
-Aquí tienes una copia de tu cotización para tus registros:
-
-========================================
-**RESUMEN DE COTIZACIÓN**
-========================================
-
-**Tus Datos:**
-  •  **Nombre:** ${name}
-  •  **Correo:** ${email}
-  •  **Teléfono:** ${phone}
-
-**Detalles del Servicio:**
-  •  **Método de Logística:** ${
-        finalLogisticsMethod === 'Recogida'
-          ? 'Recogida por Quarto'
-          : 'Entrega directa en bodega'
+      if (quoteError) {
+        alert('Error al guardar la cotización: ' + quoteError.message);
+        return;
       }
-  •  **Volumen Total Estimado:** ${totalVolume.toFixed(1)} m³
-  •  **Total de Artículos:** ${totalItems}
 
-**Inversión Estimada:**
-  •  **Almacenamiento (Mensual):** ${formatCurrency(storagePrice)}
-  •  **Transporte (Pago Único):** ${transportInfo}
+      // Track created custom_items to later update user_id
+      const customIds = [];
 
-========================================
-**INVENTARIO DETALLADO**
-========================================
+      // 3. Guarda los items en inventory con quote_id (sin selected_items)
+      const rows = [];
+      for (let idx = 0; idx < inventory.length; idx++) {
+        const item = inventory[idx];
+        let customItemId = null;
 
-${itemList}
+        if (item.isCustom) {
+          const { data: customData, error: customError } = await supabase
+            .from('custom_items')
+            .insert([{
+              name: item.name,
+              width: item.width ?? null,
+              height: item.height ?? null,
+              depth: item.depth ?? null,
+              volume: item.volume ?? 0,
+              user_id: null,
+            }])
+            .select()
+            .single();
 
-========================================
+          if (!customError && customData?.id) {
+            customItemId = customData.id;
+            customIds.push(customItemId); // <-- add to list
+          } else {
+            console.error('Error al guardar custom item:', customError);
+          }
+        }
 
-Si tienes alguna pregunta, puedes responder a este correo y te atenderemos a la brevedad.
+        rows.push({
+          quote_id: quote.id,
+          booking_id: null, // debe ser nullable en la DB
+          item_id: isUuid(item.id) && !item.isCustom ? item.id : null, // evita 22P02
+          custom_item_id: customItemId,
+          name: item.name,
+          quantity: Number(item.quantity ?? 1),
+          volume: Number(item.volume ?? 0),
+          is_custom: Boolean(item.isCustom),
+          short_code: generateShortCode(quote.id),
+        });
+      }
 
-Saludos cordiales,
+      const { error: inventoryError } = await supabase.from('inventory').insert(rows);
+      if (inventoryError) {
+        console.error('Error al guardar inventory:', inventoryError);
+      }
 
-El equipo de Quarto.`;
+      // 4. Crea o busca el usuario
+      let userId;
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
 
-      const mailtoLink = `mailto:${email}?subject=${encodeURIComponent(
-        subject
-      )}&body=${encodeURIComponent(body)}`;
-      window.location.href = mailtoLink;
+      if (existingUser) {
+        userId = existingUser.id;
+      } else {
+        const { data: newUser, error: userError } = await supabase
+          .from('users')
+          .insert([{ name, email, phone }])
+          .select()
+          .single();
+        
+        if (userError) {
+          console.error('Error al crear usuario:', userError);
+        } else {
+          userId = newUser.id;
+        }
+      }
 
-      alert(
-        'Tu cotización ha sido guardada y se abrirá en tu cliente de correo. ¡Gracias!'
-      );
+      // 5. Actualiza relaciones con user_id
+      if (userId) {
+        await supabase.from('quotes').update({ user_id: userId }).eq('id', quote.id);
+        if (transportId) {
+          await supabase.from('transports').update({ user_id: userId }).eq('id', transportId);
+        }
+        if (customIds.length > 0) {
+          await supabase.from('custom_items').update({ user_id: userId }).in('id', customIds);
+        }
+      }
+
+      // 6. Enviar correo
+      try {
+        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+        await fetch(`${API_URL}/send-quote/${quote.id}`);
+      } catch (fetchError) {
+        console.error('Error al enviar correo:', fetchError);
+        alert('Cotización guardada, pero no se pudo enviar el correo.');
+      }
+
+      // Limpia localStorage
+      localStorage.removeItem('quarto_inventory');
+      localStorage.removeItem('quarto_inventory_photos');
+      localStorage.removeItem('quarto_logistics_method');
+      localStorage.removeItem('quarto_transport');
+      localStorage.removeItem('quarto_user');
+      localStorage.removeItem('quarto_booking_contact');
+
+      alert('¡Cotización guardada exitosamente! Pronto recibirás tu correo.');
+
     } catch (error) {
-      console.error('Error en el fetch:', error);
-      alert(
-        'Ocurrió un error al guardar tu cotización. Intenta de nuevo más tarde.'
-      );
+      console.error('Error:', error);
+      alert('Ocurrió un error. Intenta de nuevo más tarde.');
     }
   };
 
+  const isFormValid = name.trim() !== '' && email.trim() !== '' && phone.trim() !== '' && !emailError && !phoneError;
+
   return (
     <div className="min-h-screen flex flex-col">
-      <main className="container mx-auto max-w-4xl p-4 sm:p-6 lg:p-8 flex-grow flex flex-col">
+      <main className="container mx-auto max-w-lg p-4 sm:p-6 lg:p-8 flex-grow flex flex-col justify-center">
         <ScreenHeader
-          title="Enviar cotización por correo"
-          subtitle="Completa tus datos para recibir una copia detallada de tu cotización."
+          title="Solicita tu cotización"
+          subtitle="Déjanos tus datos y te enviaremos una cotización personalizada."
         />
-
-        <form
-          onSubmit={handleSubmit}
-          className="space-y-8 max-w-lg mx-auto w-full"
-        >
+        <form onSubmit={handleSubmit} className="space-y-8 w-full">
           <div className="space-y-6">
-            <Input
-              id="name"
-              label="Nombre completo"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ej: Ana María"
-              required
-              autoComplete="name"
-            />
-            <Input
-              id="email"
-              label="Correo electrónico"
-              type="email"
-              value={email}
-              onChange={handleEmailChange}
-              onBlur={() => handleBlur('email')}
-              placeholder="Ej: ana.maria@correo.com"
-              required
-              autoComplete="email"
-              error={touched.email ? emailError : ''}
-            />
-            <Input
-              id="phone"
-              label="Teléfono"
-              type="tel"
-              inputMode="numeric"
-              value={phone}
-              onChange={handlePhoneChange}
-              onBlur={() => handleBlur('phone')}
-              placeholder="Ej: 3001234567"
-              required
-              autoComplete="tel"
-              maxLength={10}
-              error={touched.phone ? phoneError : ''}
-            />
+            <Input id="name" label="Nombre completo" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Ana María" required autoComplete="name" />
+            <Input id="email" label="Correo electrónico" type="email" value={email} onChange={handleEmailChange} onBlur={() => handleBlur('email')} placeholder="Ej: ana.maria@correo.com" required autoComplete="email" error={touched.email ? emailError : ''} />
+            <Input id="phone" label="Teléfono" type="tel" inputMode="numeric" value={phone} onChange={handlePhoneChange} onBlur={() => handleBlur('phone')} placeholder="Ej: 3001234567" required autoComplete="tel" maxLength={10} error={touched.phone ? phoneError : ''} />
           </div>
-
-          <div className="mt-12 text-center space-y-4 sm:space-y-0 sm:flex sm:flex-row-reverse sm:justify-center sm:space-x-4 sm:space-x-reverse">
-            <Button type="submit">Enviar cotización</Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onBack}
-              icon={<ArrowLeftIcon className="w-5 h-5" />}
-            >
-              Volver
-            </Button>
+          <div className="pt-4 text-center space-y-4 sm:space-y-0 sm:flex sm:flex-row-reverse sm:justify-center sm:space-x-4 sm:space-x-reverse">
+            <Button type="submit" disabled={!isFormValid}>Solicitar Cotización</Button>
+            <Button type="button" variant="secondary" onClick={onBack} icon={<ArrowLeftIcon className="w-5 h-5" />}>Volver</Button>
           </div>
         </form>
       </main>
