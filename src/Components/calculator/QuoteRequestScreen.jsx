@@ -265,23 +265,78 @@ const QuoteRequestScreen = ({
   const isFormValid = name.trim() !== '' && email.trim() !== '' && phone.trim() !== '' && !emailError && !phoneError;
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <main className="container mx-auto max-w-lg p-4 sm:p-6 lg:p-8 flex-grow flex flex-col justify-center">
+    <div className="min-h-screen flex flex-col bg-slate-50">
+      <main className="container mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 flex-grow pt-8 pb-12">
         <ScreenHeader
           title="Solicita tu cotización"
           subtitle="Déjanos tus datos y te enviaremos una cotización personalizada."
         />
-        <form onSubmit={handleSubmit} className="space-y-8 w-full">
-          <div className="space-y-6">
-            <Input id="name" label="Nombre completo" type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ej: Ana María" required autoComplete="name" />
-            <Input id="email" label="Correo electrónico" type="email" value={email} onChange={handleEmailChange} onBlur={() => handleBlur('email')} placeholder="Ej: ana.maria@correo.com" required autoComplete="email" error={touched.email ? emailError : ''} />
-            <Input id="phone" label="Teléfono" type="tel" inputMode="numeric" value={phone} onChange={handlePhoneChange} onBlur={() => handleBlur('phone')} placeholder="Ej: 3001234567" required autoComplete="tel" maxLength={10} error={touched.phone ? phoneError : ''} />
+
+        <div className="mt-4 bg-white/95 backdrop-blur rounded-3xl shadow-xl border border-slate-200 p-6 sm:p-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#012E58]/6 text-[#012E58] text-sm font-semibold mb-4">
+            <span>🧾</span> Solicitud de cotización
           </div>
-          <div className="pt-4 text-center space-y-4 sm:space-y-0 sm:flex sm:flex-row-reverse sm:justify-center sm:space-x-4 sm:space-x-reverse">
-            <Button type="submit" disabled={!isFormValid}>Solicitar Cotización</Button>
-            <Button type="button" variant="secondary" onClick={onBack} icon={<ArrowLeftIcon className="w-5 h-5" />}>Volver</Button>
-          </div>
-        </form>
+
+          <form onSubmit={handleSubmit} className="space-y-7 w-full">
+            <div className="space-y-6">
+              <Input
+                id="name"
+                label="Nombre completo"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ej: Ana María"
+                required
+                autoComplete="name"
+              />
+              <Input
+                id="email"
+                label="Correo electrónico"
+                type="email"
+                value={email}
+                onChange={handleEmailChange}
+                onBlur={() => handleBlur('email')}
+                placeholder="Ej: ana.maria@correo.com"
+                required
+                autoComplete="email"
+                error={touched.email ? emailError : ''}
+              />
+              <Input
+                id="phone"
+                label="Teléfono"
+                type="tel"
+                inputMode="numeric"
+                value={phone}
+                onChange={handlePhoneChange}
+                onBlur={() => handleBlur('phone')}
+                placeholder="Ej: 3001234567"
+                required
+                autoComplete="tel"
+                maxLength={10}
+                error={touched.phone ? phoneError : ''}
+              />
+            </div>
+
+            <div className="pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={onBack}
+                icon={<ArrowLeftIcon className="w-5 h-5" />}
+                className="sm:w-40 !py-2.5"
+              >
+                Volver
+              </Button>
+              <Button
+                type="submit"
+                disabled={!isFormValid}
+                className="flex-1 sm:flex-none sm:w-48 !py-2.5 font-bold shadow-lg hover:shadow-xl"
+              >
+                Solicitar Cotización
+              </Button>
+            </div>
+          </form>
+        </div>
       </main>
     </div>
   );

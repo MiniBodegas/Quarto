@@ -14,9 +14,7 @@ const TIME_SLOTS = [
   { value: 'PM', label: 'Tarde (1pm - 5pm)' },
 ];
 
-
 function generateShortCode() {
-  // Ejemplo: 6 caracteres alfanuméricos
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
@@ -51,23 +49,13 @@ const BookingScreen = ({
 
   const [emailError, setEmailError] = useState('');
   const [phoneError, setPhoneError] = useState('');
-  const [touched, setTouched] = useState({
-    email: false,
-    phone: false,
-  });
+  const [touched, setTouched] = useState({ email: false, phone: false });
 
-  // 🔹 Leer lo que ya tienes del flujo anterior en localStorage
   const loadFromLocalStorage = () => {
     try {
-      const inventory = JSON.parse(
-        localStorage.getItem('quarto_inventory') || '[]'
-      );
-      const logisticsMethodLS =
-        localStorage.getItem('quarto_logistics_method') || null;
-      const transport = JSON.parse(
-        localStorage.getItem('quarto_transport') || 'null'
-      );
-
+      const inventory = JSON.parse(localStorage.getItem('quarto_inventory') || '[]');
+      const logisticsMethodLS = localStorage.getItem('quarto_logistics_method') || null;
+      const transport = JSON.parse(localStorage.getItem('quarto_transport') || 'null');
       return { inventory, logisticsMethodLS, transport };
     } catch (error) {
       console.error('Error leyendo datos desde localStorage:', error);
@@ -136,8 +124,7 @@ const BookingScreen = ({
     const isDateValid = date.trim() !== '';
     const isTimeSlotValid = timeSlot.trim() !== '';
     const isCompanyDataValid =
-      bookingType === 'person' ||
-      (companyName.trim() !== '' && companyNit.trim() !== '');
+      bookingType === 'person' || (companyName.trim() !== '' && companyNit.trim() !== '');
 
     setTouched({ email: true, phone: true });
 
@@ -153,33 +140,24 @@ const BookingScreen = ({
       if (!isNameValid) alert('Por favor, ingresa tu nombre completo.');
       if (!isDocumentValid) alert('Por favor, ingresa tu número de documento.');
       if (!isDateValid) alert('Por favor, selecciona una fecha.');
-      if (!isTimeSlotValid)
-        alert('Por favor, selecciona una franja horaria.');
+      if (!isTimeSlotValid) alert('Por favor, selecciona una franja horaria.');
       if (bookingType === 'company') {
-        if (companyName.trim() === '')
-          alert('Por favor, ingresa el nombre de la empresa.');
-        else if (companyNit.trim() === '')
-          alert('Por favor, ingresa el NIT de la empresa.');
+        if (companyName.trim() === '') alert('Por favor, ingresa el nombre de la empresa.');
+        else if (companyNit.trim() === '') alert('Por favor, ingresa el NIT de la empresa.');
       }
       return;
     }
 
-    // ✅ Cargar datos del localStorage (inventario, logística, transporte, fotos)
     const { inventory, logisticsMethodLS, transport } = loadFromLocalStorage();
     const photos = JSON.parse(localStorage.getItem('quarto_inventory_photos') || '{}');
 
     const finalLogisticsMethod = logisticsMethodLS || logisticsMethod;
     const finalTotalItems =
-      totalItems ??
-      inventory.reduce((sum, item) => sum + (item.quantity ?? 1), 0);
+      totalItems ?? inventory.reduce((sum, item) => sum + (item.quantity ?? 1), 0);
     const finalTotalVolume =
       totalVolume ??
-      inventory.reduce(
-        (sum, item) => sum + (item.volume ?? 0) * (item.quantity ?? 1),
-        0
-      );
+      inventory.reduce((sum, item) => sum + (item.volume ?? 0) * (item.quantity ?? 1), 0);
 
-    // ✅ Construir el payload para Supabase
     const bookingPayload = {
       booking_type: bookingType,
       company_name: bookingType === 'company' ? companyName : null,
@@ -194,13 +172,13 @@ const BookingScreen = ({
       total_items: finalTotalItems,
       total_volume: finalTotalVolume,
       logistics_method: finalLogisticsMethod,
-      transport_price: finalLogisticsMethod === 'En bodega' ? 0 : (transport?.transport_price ?? transportPrice ?? null),
+      transport_price:
+        finalLogisticsMethod === 'En bodega' ? 0 : transport?.transport_price ?? transportPrice ?? null,
     };
 
     console.log('Guardando reserva en Supabase:', bookingPayload);
 
     try {
-      // 1. Insertar usuario
       const { data: userData } = await supabase
         .from('users')
         .insert([{ name, email, phone }])
@@ -210,51 +188,49 @@ const BookingScreen = ({
 
       let transportId = null;
       if (logisticsMethod === 'Recogida') {
-        // Solo guarda transporte si es recogida
         const { data: transportData, error: transportError } = await supabase
           .from('transports')
           .insert([{ ...transport, user_id: userId }])
           .select()
           .single();
         if (transportError) {
-          // manejar error
+          console.error('Error en transporte:', transportError);
           return;
         }
         transportId = transportData.id;
       }
 
-      // Al guardar booking, transport_id puede ser null
       const { data: bookingData, error: bookingError } = await supabase
         .from('bookings')
         .insert([{ ...bookingPayload, user_id: userId, transport_id: transportId }])
         .select()
         .single();
+      if (bookingError) {
+        console.error('Error en booking:', bookingError);
+        return;
+      }
       const bookingId = bookingData.id;
 
-      // 4. (Opcional) Actualizar transporte con booking_id
-      if (transportId) {2
-        await supabase
-          .from('transports')
-          .update({ booking_id: bookingId })
-          .eq('id', transportId);
+      if (transportId) {
+        await supabase.from('transports').update({ booking_id: bookingId }).eq('id', transportId);
       }
 
-      const inventory = JSON.parse(localStorage.getItem('quarto_inventory') || '[]');
-      for (const item of inventory) {
+      const inv = JSON.parse(localStorage.getItem('quarto_inventory') || '[]');
+      for (const item of inv) {
         let customItemId = null;
 
         if (item.isCustom) {
-          // 1. Inserta el custom item SIN user_id
           const { data: customData, error: customError } = await supabase
             .from('custom_items')
-            .insert([{
-              name: item.name,
-              width: item.width,
-              height: item.height,
-              depth: item.depth,
-              volume: item.volume,
-              // user_id: null
-            }])
+            .insert([
+              {
+                name: item.name,
+                width: item.width,
+                height: item.height,
+                depth: item.depth,
+                volume: item.volume,
+              },
+            ])
             .select()
             .single();
 
@@ -264,40 +240,26 @@ const BookingScreen = ({
           }
           customItemId = customData.id;
 
-          // 2. Actualiza el custom item con el user_id
           if (userId) {
-            await supabase
-              .from('custom_items')
-              .update({ user_id: userId })
-              .eq('id', customItemId);
+            await supabase.from('custom_items').update({ user_id: userId }).eq('id', customItemId);
           }
         }
 
-        // Inserta en inventory, asociando el custom_item_id si aplica
         const inventoryPayload = {
           booking_id: bookingId,
           item_id: item.id && !item.isCustom ? item.id : null,
-          custom_item_id: customItemId, // null si no es custom
+          custom_item_id: customItemId,
           name: item.name,
           quantity: item.quantity ?? 1,
           volume: item.volume ?? 0,
           is_custom: item.isCustom ?? false,
           short_code: generateShortCode(),
-          // image_url: ... si tienes imagen
         };
 
-        await supabase
-          .from('inventory')
-          .insert([inventoryPayload]);
+        await supabase.from('inventory').insert([inventoryPayload]);
       }
 
-      // Opcional: guardar algo en localStorage
-      localStorage.setItem(
-        'quarto_booking_contact',
-        JSON.stringify({ name, email, phone })
-      );
-
-      // Llamar callback para que el flujo siga
+      localStorage.setItem('quarto_booking_contact', JSON.stringify({ name, email, phone }));
       onConfirm(name);
     } catch (err) {
       console.error('Error inesperado al guardar la reserva:', err);
@@ -314,168 +276,171 @@ const BookingScreen = ({
     timeSlot.trim() !== '' &&
     !emailError &&
     !phoneError &&
-    (bookingType === 'person' ||
-      (companyName.trim() !== '' && companyNit.trim() !== ''));
+    (bookingType === 'person' || (companyName.trim() !== '' && companyNit.trim() !== ''));
 
   const today = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <main className="container mx-auto max-w-lg p-4 sm:p-6 lg:p-8 flex-grow flex flex-col justify-center">
+    <div className="min-h-screen flex flex-col bg-slate-50">
+      <main className="container mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 flex-grow pt-8 pb-12">
         <ScreenHeader
           title="Agenda tu servicio"
           subtitle="Estás a un paso de asegurar tu espacio. Completa tus datos y elige una fecha."
         />
 
-        <form onSubmit={handleSubmit} className="space-y-8 w-full">
-          <div className="space-y-6">
-            <Select
-              id="booking-type"
-              label="¿El servicio es para?"
-              value={bookingType}
-              onChange={(e) => setBookingType(e.target.value)}
-            >
-              <option value="person">Persona Natural</option>
-              <option value="company">Empresa</option>
-            </Select>
+        <div className="mt-4 bg-white/95 backdrop-blur rounded-3xl shadow-xl border border-slate-200 p-6 sm:p-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#012E58]/6 text-[#012E58] text-sm font-semibold mb-4">
+            <span>📝</span> Datos de contacto
+          </div>
 
-            {bookingType === 'company' && (
-              <div className="space-y-6 bg-muted dark:bg-muted-dark p-4 rounded-xl animate-fade-in">
-                <Input
-                  id="companyName"
-                  label="Nombre de la empresa"
-                  type="text"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="Ej: Mi Empresa S.A.S"
+          <form onSubmit={handleSubmit} className="space-y-7">
+            <div className="space-y-6">
+              <Select
+                id="booking-type"
+                label="¿El servicio es para?"
+                value={bookingType}
+                onChange={(e) => setBookingType(e.target.value)}
+                className="!rounded-lg !px-3 !py-2.5 !text-[#012E58]"
+              >
+                <option value="person">Persona Natural</option>
+                <option value="company">Empresa</option>
+              </Select>
+
+              {bookingType === 'company' && (
+                <div className="space-y-4 bg-white border border-slate-200 rounded-2xl p-4">
+                  <Input
+                    id="companyName"
+                    label="Nombre de la empresa"
+                    type="text"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="Ej: Mi Empresa S.A.S"
+                    required
+                  />
+                  <Input
+                    id="companyNit"
+                    label="NIT"
+                    type="text"
+                    inputMode="numeric"
+                    value={companyNit}
+                    onChange={(e) => setCompanyNit(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Ej: 900123456"
+                    required
+                  />
+                </div>
+              )}
+
+              <Input
+                id="name"
+                label={bookingType === 'company' ? 'Nombre completo (contacto)' : 'Nombre completo'}
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ej: Ana María"
+                required
+                autoComplete="name"
+              />
+              <Input
+                id="email"
+                label="Correo electrónico"
+                type="email"
+                value={email}
+                onChange={handleEmailChange}
+                onBlur={() => handleBlur('email')}
+                placeholder="Ej: ana.maria@correo.com"
+                required
+                autoComplete="email"
+                error={touched.email ? emailError : ''}
+              />
+              <Input
+                id="phone"
+                label="Teléfono"
+                type="tel"
+                inputMode="numeric"
+                value={phone}
+                onChange={handlePhoneChange}
+                onBlur={() => handleBlur('phone')}
+                placeholder="Ej: 3001234567"
+                required
+                autoComplete="tel"
+                maxLength={10}
+                error={touched.phone ? phoneError : ''}
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Select
+                  id="document-type"
+                  label="Tipo de documento"
+                  value={documentType}
+                  onChange={(e) => setDocumentType(e.target.value)}
                   required
-                />
+                  className="!rounded-lg !px-3 !py-2.5 !text-[#012E58]"
+                >
+                  {DOCUMENT_TYPES.map((doc) => (
+                    <option key={doc.value} value={doc.value}>
+                      {doc.label}
+                    </option>
+                  ))}
+                </Select>
                 <Input
-                  id="companyNit"
-                  label="NIT"
+                  id="document-number"
+                  label="Número de documento"
                   type="text"
                   inputMode="numeric"
-                  value={companyNit}
-                  onChange={(e) =>
-                    setCompanyNit(e.target.value.replace(/\D/g, ''))
-                  }
-                  placeholder="Ej: 900123456"
+                  value={documentNumber}
+                  onChange={handleDocumentNumberChange}
+                  placeholder="Ej: 1234567890"
                   required
                 />
               </div>
-            )}
 
-            <Input
-              id="name"
-              label={
-                bookingType === 'company'
-                  ? 'Nombre completo (contacto)'
-                  : 'Nombre completo'
-              }
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Ej: Ana María"
-              required
-              autoComplete="name"
-            />
-            <Input
-              id="email"
-              label="Correo electrónico"
-              type="email"
-              value={email}
-              onChange={handleEmailChange}
-              onBlur={() => handleBlur('email')}
-              placeholder="Ej: ana.maria@correo.com"
-              required
-              autoComplete="email"
-              error={touched.email ? emailError : ''}
-            />
-            <Input
-              id="phone"
-              label="Teléfono"
-              type="tel"
-              inputMode="numeric"
-              value={phone}
-              onChange={handlePhoneChange}
-              onBlur={() => handleBlur('phone')}
-              placeholder="Ej: 3001234567"
-              required
-              autoComplete="tel"
-              maxLength={10}
-              error={touched.phone ? phoneError : ''}
-            />
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Select
-                id="document-type"
-                label="Tipo de documento"
-                value={documentType}
-                onChange={(e) => setDocumentType(e.target.value)}
-                required
-              >
-                {DOCUMENT_TYPES.map((doc) => (
-                  <option key={doc.value} value={doc.value}>
-                    {doc.label}
-                  </option>
-                ))}
-              </Select>
-              <Input
-                id="document-number"
-                label="Número de documento"
-                type="text"
-                inputMode="numeric"
-                value={documentNumber}
-                onChange={handleDocumentNumberChange}
-                placeholder="Ej: 1234567890"
-                required
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input
+                  id="date"
+                  label={logisticsMethod === 'Recogida' ? 'Fecha de Recogida' : 'Fecha de Llegada a Bodega'}
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  required
+                  min={today}
+                />
+                <Select
+                  id="time-slot"
+                  label="Franja horaria"
+                  value={timeSlot}
+                  onChange={(e) => setTimeSlot(e.target.value)}
+                  required
+                  className="!rounded-lg !px-3 !py-2.5 !text-[#012E58]"
+                >
+                  {TIME_SLOTS.map((slot) => (
+                    <option key={slot.value} value={slot.value}>
+                      {slot.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <Input
-                id="date"
-                label={
-                  logisticsMethod === 'Recogida'
-                    ? 'Fecha de Recogida'
-                    : 'Fecha de Llegada a Bodega'
-                }
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-                min={today}
-              />
-              <Select
-                id="time-slot"
-                label="Franja horaria"
-                value={timeSlot}
-                onChange={(e) => setTimeSlot(e.target.value)}
-                required
+            <div className="pt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={onBack}
+                icon={<ArrowLeftIcon className="w-5 h-5" />}
+                className="sm:w-40 !py-2.5"
               >
-                {TIME_SLOTS.map((slot) => (
-                  <option key={slot.value} value={slot.value}>
-                    {slot.label}
-                  </option>
-                ))}
-              </Select>
+                Volver
+              </Button>
+              <Button
+                type="submit"
+                disabled={!isFormValid}
+                className="flex-1 sm:flex-none sm:w-48 !py-2.5 font-bold shadow-lg hover:shadow-xl"
+              >
+                Confirmar Reserva
+              </Button>
             </div>
-          </div>
-
-          <div className="pt-4 text-center space-y-4 sm:space-y-0 sm:flex sm:flex-row-reverse sm:justify-center sm:space-x-4 sm:space-x-reverse">
-            <Button type="submit" disabled={!isFormValid}>
-              Confirmar Reserva
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={onBack}
-              icon={<ArrowLeftIcon className="w-5 h-5" />}
-            >
-              Volver
-            </Button>
-          </div>
-        </form>
+          </form>
+        </div>
       </main>
     </div>
   );
