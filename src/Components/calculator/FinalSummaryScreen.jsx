@@ -16,15 +16,18 @@ const FinalSummaryScreen = ({ totalVolume, totalItems, logisticsMethod, transpor
     const storagePrice = calculateStoragePrice(totalVolume);
 
     return (
-        <div className="min-h-screen flex flex-col">
-            <main className="container mx-auto max-w-4xl p-4 sm:p-6 lg:p-8 flex-grow flex flex-col justify-center">
+        <div className="min-h-screen flex flex-col bg-slate-50">
+            <main className="container mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 flex-grow flex flex-col pt-8 pb-12">
                 <ScreenHeader 
                     title="Resumen final"
                     subtitle="¡Todo listo! Revisa los detalles de tu plan de almacenamiento."
                 />
 
-                <div className="max-w-lg mx-auto w-full">
-                    <div className="bg-white dark:bg-white p-6 rounded-2xl space-y-6">
+                <div className="max-w-3xl mx-auto w-full mt-4">
+                    <div className="bg-white/95 backdrop-blur p-7 sm:p-8 rounded-3xl space-y-7 shadow-xl border border-slate-200/80">
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#012E58]/6 text-[#012E58] text-sm font-semibold">
+                         Resumen de tu plan
+                        </div>
                         <div className="space-y-3">
                             <div className="flex justify-between items-center">
                                 <span className="text-[#012E58] dark:text-[#012E58]">Artículos totales:</span>
@@ -53,47 +56,48 @@ const FinalSummaryScreen = ({ totalVolume, totalItems, logisticsMethod, transpor
                             </div>
                         </div>
 
-                        <div className="p-6 text-center bg-muted dark:bg-muted-dark rounded-2xl border border-border dark:border-border-dark">
-                            <p className="text-sm font-medium text-muted-foreground dark:text-muted-dark-foreground text-[#012E58] mb-1">
+                        <div className="p-6 text-center bg-slate-50/90 rounded-2xl border border-slate-200">
+                            <p className="text-sm font-semibold text-[#012E58] mb-1">
                                 Valor mensual estimado
                             </p>
-
-                            <p className="text-4xl font-extrabold dark:text-[#012E58]">
+                            <p className="text-4xl font-extrabold text-[#012E58]">
                                 {formatCurrency(storagePrice)}
                             </p>
-
                             {logisticsMethod === 'Recogida' && transportPrice !== null && (
-                                <p className="text-xs text-[#012E58] dark:text-[#012E58] mt-1">
+                                <p className="text-xs text-[#012E58] mt-1">
                                     + {formatCurrency(transportPrice)} de transporte el primer mes
                                 </p>
                             )}
                         </div>
-                            <div className="pt-6 space-y-4">
+
+                        <div className="pt-4 space-y-3">
+                            {/* CTA principal */}
+                            <Button
+                                onClick={onBookService}
+                                className="w-full !py-3 text-base font-bold shadow-lg hover:shadow-xl"
+                            >
+                                Contratar el servicio
+                            </Button>
+
+                            {/* Secundarios alineados en fila */}
+                            <div className="grid grid-cols-2 gap-3">
                                 <Button
-                                    onClick={onBookService}
-                                    className="font-extrabold shadow-lg hover:shadow-xl transition-shadow"
+                                    variant="outline"
+                                    onClick={onGoToQuote}
+                                    className="!py-2.5 font-semibold"
                                 >
-                                    Contratar el servicio
+                                    Enviar cotización
                                 </Button>
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <Button
-                                        variant="secondary"
-                                        onClick={onBack}
-                                        icon={<ArrowLeftIcon className="w-5 h-5" />}
-                                    >
-                                        Volver
-                                    </Button>
-
-                                    <Button
-                                        variant="outline"
-                                        onClick={onGoToQuote}
-                                        icon={<span className="material-symbols-outlined text-lg">mail</span>}
-                                    >
-                                        Enviar cotización
-                                    </Button>
-                                </div>
+                                <Button
+                                    variant="secondary"
+                                    onClick={onBack}
+                                    icon={<ArrowLeftIcon className="w-4 h-4" />}
+                                    className="!py-2.5 font-semibold"
+                                >
+                                    Volver
+                                </Button>
                             </div>
+                        </div>
                     </div>
                 </div>
             </main>

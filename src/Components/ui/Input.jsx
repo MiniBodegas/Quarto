@@ -40,7 +40,7 @@ const Input = forwardRef((props, ref) => {
         <input
           id={inputId}
           ref={ref}
-          className={`w-full bg-card border rounded-md px-3 py-2 text-text-primary placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors duration-200 ${errorBorderClasses} ${icon ? 'pl-11' : ''} ${className}`}
+          className={`w-full bg-white dark:bg-card border rounded-lg px-3 py-2.5 text-[#012E58] placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors duration-200 ${errorBorderClasses} ${icon ? 'pl-11' : ''} ${className}`}
           {...rest}
         />
       </div>
