@@ -19,9 +19,6 @@ function appReducer(state, action) {
         case 'NAVIGATE_TO':
             return { ...state, view: action.payload };
 
-            case 'SELECT_ITEMS':
-            return { ...state, view: 'inventoryPhotos' };
-
         case 'SELECT_LOGISTICS':
             return {
                 ...state,
@@ -36,10 +33,8 @@ function appReducer(state, action) {
             return { ...initialState };
         case 'GO_BACK': {
             switch (state.view) {
-                case 'inventoryPhotos':
-                    return { ...state, view: 'calculator' };
                 case 'logistics':
-                    return { ...initialState, view: 'inventoryPhotos' };
+                    return { ...initialState, view: 'calculator' };
                 case 'transport':
                     return { ...state, view: 'logistics', transportPrice: null };
                 case 'finalSummary':
@@ -233,7 +228,7 @@ const Calculator = () => {
             case 'calculator':
             default:
                 return (
-                    <div className="container mx-auto max-w-6xl p-4 sm:p-6 lg:p-8 flex-grow">
+                    <div className="w-full px-4 sm:px-6 lg:px-8 flex-grow">
                         <ScreenHeader 
                             title="Calcula tu espacio"
                             subtitle="Selecciona los artículos que tienes para almacenar."
@@ -282,9 +277,9 @@ const Calculator = () => {
                                                 </button>
                                                 {isExpanded && (
                                                     <div
-                                                        className="px-4 sm:px-5 pb-5 border-t border-border dark:border-slate-700 text-[#012E58]"
+                                                        className="px-5 sm:px-6 pb-6 border-t border-border dark:border-slate-700 text-[#012E58]"
                                                     >
-                                                        <div className="pt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
+                                                        <div className="pt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-5">
                                                             {categoryItems.map(item => {
                                                                 // Busca el artículo en el inventario para obtener el quantity actualizado
                                                                 const inventoryItem = items.find(i => i.id === item.id);
@@ -328,7 +323,7 @@ const Calculator = () => {
                                     selectedItems={selectedItems}
                                     onContinue={() => {
                                         saveInventoryToLocal(selectedItems); // Guarda en localStorage al continuar
-                                        dispatch({ type: 'NAVIGATE_TO', payload: 'inventoryPhotos' });
+                                        dispatch({ type: 'NAVIGATE_TO', payload: 'logistics' });
                                     }}
                                     onClearAll={handleClearAll}
                                     onRemoveItem={handleRemoveSelectedItem}

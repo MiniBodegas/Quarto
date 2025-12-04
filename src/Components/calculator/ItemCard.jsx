@@ -64,7 +64,7 @@ const ItemCard = ({ item, onQuantityChange, onRemove }) => {
       <div>
         <div className="mb-2 flex items-start justify-between gap-2">
           <div>
-            <h3 className="text-sm font-semibold leading-tight text-[#012E58]">
+            <h3 className="text-left text-sm font-semibold leading-tight text-[#012E58]">
               {name}
             </h3>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
