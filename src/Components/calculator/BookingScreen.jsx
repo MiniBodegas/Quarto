@@ -245,18 +245,26 @@ const BookingScreen = ({
           }
         }
 
+        const quantity = Number(item.quantity ?? 1);
+        const volume = Number(item.volume ?? 0);
+
         const inventoryPayload = {
           booking_id: bookingId,
-          item_id: item.id && !item.isCustom ? item.id : null,
+          item_id: !item.isCustom && item.id && typeof item.id === 'string' && item.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) ? item.id : null,
           custom_item_id: customItemId,
           name: item.name,
-          quantity: item.quantity ?? 1,
-          volume: item.volume ?? 0,
+          quantity,
+          volume,
           is_custom: item.isCustom ?? false,
           short_code: generateShortCode(),
         };
 
-        await supabase.from('inventory').insert([inventoryPayload]);
+        const { error: invError } = await supabase.from('inventory').insert([inventoryPayload]);
+        if (invError) {
+          console.error('Error al guardar inventory:', invError);
+          alert('No pudimos guardar el inventario. Intenta de nuevo.');
+          return;
+        }
       }
 
       localStorage.setItem('quarto_booking_contact', JSON.stringify({ name, email, phone }));
