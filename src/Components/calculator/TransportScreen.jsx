@@ -61,15 +61,18 @@ const TransportScreen = ({ totalVolume, onContinue, onBack }) => {
     }).format(value || 0);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      <main className="container mx-auto max-w-2xl p-4 sm:p-6 lg:p-8 flex-grow flex flex-col">
+    <div className="min-h-screen flex flex-col bg-slate-50">
+      <main className="container mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 flex-grow pt-8 pb-12">
         <ScreenHeader
           title="Información de recogida"
           subtitle="Ingresa la dirección donde recogeremos tus pertenencias."
         />
 
-        {/* Card principal blanca, sin fondo gris */}
-        <div className="w-full rounded-2xl border border-border dark:border-border-dark p-5 sm:p-6 space-y-6 bg-white">
+        <div className="mt-4 bg-white/95 backdrop-blur rounded-3xl shadow-xl border border-slate-200 p-6 sm:p-8 space-y-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#012E58]/6 text-[#012E58] text-sm font-semibold">
+            <span>📦</span> Dirección de recogida
+          </div>
+
           <Select
             id="city-select"
             label="Ciudad"
@@ -165,7 +168,7 @@ const TransportScreen = ({ totalVolume, onContinue, onBack }) => {
             <button
               type="button"
               onClick={() => setHasNoNumber((prev) => !prev)}
-              className="inline-flex items-center gap-2 text-sm text-[#012E58]"
+              className="inline-flex items-center gap-2 text-sm text-[#012E58] font-semibold"
             >
               <span
                 className={`material-symbols-outlined text-2xl transition-colors ${
@@ -188,33 +191,37 @@ const TransportScreen = ({ totalVolume, onContinue, onBack }) => {
             className="!rounded-lg !px-3 !py-2.5 !text-[#012E58]"
           />
 
-          {/* Resumen de precio de transporte – sin fondo gris, solo borde suave */}
-          <div className="mt-4 rounded-xl border border-dashed border-border dark:border-border-dark px-4 py-3 flex items-center justify-between">
+          <div className="mt-2 rounded-2xl border border-dashed border-slate-200 px-4 py-3 flex items-center justify-between bg-slate-50/60">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                 Estimación del transporte
               </p>
               <p className="text-[11px] text-slate-500">
                 Según el volumen aproximado de tus pertenencias.
               </p>
             </div>
-            <p className="text-xl font-bold text-[#012E58]">
+            <p className="text-2xl font-extrabold text-[#012E58]">
               {formatCurrency(transportPrice)}
             </p>
           </div>
-        </div>
 
-        <div className="mt-10 text-center space-y-4 sm:space-y-0 sm:flex sm:flex-row-reverse sm:justify-center sm:space-x-4 sm:space-x-reverse">
-          <Button onClick={handleContinue} disabled={!isFormValid}>
-            Continuar
-          </Button>
-          <Button
-            onClick={onBack}
-            variant="secondary"
-            icon={<ArrowLeftIcon className="w-5 h-5" />}
-          >
-            Volver
-          </Button>
+          <div className="pt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <Button
+              onClick={handleContinue}
+              disabled={!isFormValid}
+              className="flex-1 sm:flex-none sm:w-48 !py-2.5 font-bold shadow-lg hover:shadow-xl"
+            >
+              Continuar
+            </Button>
+            <Button
+              onClick={onBack}
+              variant="secondary"
+              icon={<ArrowLeftIcon className="w-5 h-5" />}
+              className="flex-1 sm:flex-none sm:w-40 !py-2.5"
+            >
+              Volver
+            </Button>
+          </div>
         </div>
       </main>
     </div>
