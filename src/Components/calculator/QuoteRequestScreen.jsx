@@ -239,12 +239,12 @@ const QuoteRequestScreen = ({
 
       // 6. Enviar correo
       try {
-        const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-        await fetch(`${API_URL}/send-quote/${quote.id}`);
-      } catch (fetchError) {
-        console.error('Error al enviar correo:', fetchError);
-        alert('Cotización guardada, pero no se pudo enviar el correo.');
-      }
+          await fetch(`/api/send-quote/${quote.id}`);
+        } catch (fetchError) {
+          console.error('Error al enviar correo:', fetchError);
+          alert('Cotización guardada, pero no se pudo enviar el correo.');
+        }
+
 
       // Limpia localStorage
       localStorage.removeItem('quarto_inventory');

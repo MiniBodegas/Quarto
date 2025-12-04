@@ -2,10 +2,9 @@ import express from 'express';
 import cors from 'cors';
 import 'dotenv/config';
 import { Resend } from 'resend';
-import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { supabase } from '../supabase.js';
-import QuoteTemplate from './QuoteTemplate.jsx';
+import QuoteTemplate from '../../src/mail/QuoteTemplate.jsx';
 
 // Inicializa Express y CORS antes de rutas
 const app = express();
