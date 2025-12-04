@@ -2,7 +2,7 @@
 import { Resend } from 'resend';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createClient } from '@supabase/supabase-js';
-import QuoteTemplate from '../../src/mail/QuoteTemplate';
+import QuoteTemplate from '../../src/mail/QuoteTemplate.jsx';
 
 // ⚠️ Cliente admin solo para backend (usa service_role)
 const supabase = createClient(
