@@ -118,7 +118,7 @@ export default async function handler(req, res) {
     );
 
     const { data: emailData, error: emailError } = await resend.emails.send({
-      from: 'Quarto <onboarding@resend.dev>',
+      from: 'Quarto <cotizaciones@quarto.com.co>',
       to: quote.email,
       subject: 'Tu cotización de Quarto',
       html,
