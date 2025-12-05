@@ -76,21 +76,12 @@ const QuoteRequestScreen = ({
     }
   };
 
-  const isUuid = (v) =>
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v || '');
-
-  const generateShortCode = (prefix = '') =>
-    `${(prefix || '').slice(0, 4)}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     const isNameValid = name.trim() !== '';
     const isEmailValid = validateEmail(email);
     const isPhoneValid = validatePhone(phone);
-
     setTouched({ email: true, phone: true });
-
     if (!isNameValid || !isEmailValid || !isPhoneValid) {
       if (!isNameValid) alert('Por favor, ingresa tu nombre completo.');
       return;
@@ -99,26 +90,53 @@ const QuoteRequestScreen = ({
     const { inventory, logisticsMethodLS, transport } = loadFromLocalStorage();
     const finalLogisticsMethod = logisticsMethodLS || logisticsMethod;
     const finalTotalItems = totalItems ?? inventory.reduce((sum, item) => sum + (item.quantity ?? 1), 0);
-    const finalTotalVolume = totalVolume ?? inventory.reduce((sum, item) => sum + (item.volume ?? 0) * (item.quantity ?? 1), 0);
+    const finalTotalVolume =
+      totalVolume ?? inventory.reduce((sum, item) => sum + (item.volume ?? 0) * (item.quantity ?? 1), 0);
 
     try {
-      // 1. Guarda el transporte si el método es "Recogida" (sin user_id por ahora)
+      // 1) Upsert usuario por email
+      let userId = null;
+      const { data: existingUser } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (existingUser) {
+        userId = existingUser.id;
+        await supabase.from('users').update({ name, phone }).eq('id', userId);
+      } else {
+        const { data: newUser, error: userError } = await supabase
+          .from('users')
+          .insert([{ name, email, phone }])
+          .select()
+          .single();
+        if (userError) {
+          alert('No pudimos crear el usuario: ' + userError.message);
+          return;
+        }
+        userId = newUser.id;
+      }
+
+      // 2) Guarda transporte (si aplica)
       let transportId = null;
       if (finalLogisticsMethod === 'Recogida' && transport) {
         const { data: transportData, error: transportError } = await supabase
           .from('transports')
-          .insert([{
-            city: transport.city,
-            street_type: transport.street_type,
-            street_name: transport.street_name,
-            number1: transport.number1,
-            number2: transport.number2,
-            has_no_number: transport.has_no_number || false,
-            complement: transport.complement,
-            total_volume: transport.total_volume,
-            transport_price: transport.transport_price,
-            user_id: null, // Se actualizará después
-          }])
+          .insert([
+            {
+              city: transport.city,
+              street_type: transport.street_type,
+              street_name: transport.street_name,
+              number1: transport.number1,
+              number2: transport.number2,
+              has_no_number: transport.has_no_number || false,
+              complement: transport.complement,
+              total_volume: transport.total_volume,
+              transport_price: transport.transport_price,
+              user_id: userId,
+            },
+          ])
           .select()
           .single();
 
@@ -129,124 +147,57 @@ const QuoteRequestScreen = ({
         transportId = transportData.id;
       }
 
-      // 2. Guarda la cotización en quotes (sin selected_items)
-      const { data: quote, error: quoteError } = await supabase
+      // 3) Guarda la cotización
+      const { data: quoteRow, error: quoteErr } = await supabase
         .from('quotes')
-        .insert([{
-          name,
-          email,
-          phone,
-          total_volume: finalTotalVolume,
-          total_items: finalTotalItems,
-          logistics_method: finalLogisticsMethod,
-          transport_price: finalLogisticsMethod === 'Recogida'
-            ? (transport?.transport_price ?? transportPrice)
-            : 0,
-          user_id: null,
-          Trasnport_id: transportId,
-        }])
+        .insert([
+          {
+            name,
+            email,
+            phone,
+            total_volume: finalTotalVolume,
+            total_items: finalTotalItems,
+            logistics_method: finalLogisticsMethod,
+            transport_price: transportPrice,
+            user_id: userId,
+            Trasnport_id: transportId,
+          },
+        ])
         .select()
         .single();
 
-      if (quoteError) {
-        alert('Error al guardar la cotización: ' + quoteError.message);
+      if (quoteErr) {
+        alert('Error al guardar la cotización: ' + quoteErr.message);
         return;
       }
+      const quoteId = quoteRow.id;
 
-      // Track created custom_items to later update user_id
-      const customIds = [];
-
-      // 3. Guarda los items en inventory con quote_id (sin selected_items)
-      const rows = [];
-      for (let idx = 0; idx < inventory.length; idx++) {
-        const item = inventory[idx];
-        let customItemId = null;
-
-        if (item.isCustom) {
-          const { data: customData, error: customError } = await supabase
-            .from('custom_items')
-            .insert([{
-              name: item.name,
-              width: item.width ?? null,
-              height: item.height ?? null,
-              depth: item.depth ?? null,
-              volume: item.volume ?? 0,
-              user_id: null,
-            }])
-            .select()
-            .single();
-
-          if (!customError && customData?.id) {
-            customItemId = customData.id;
-            customIds.push(customItemId); // <-- add to list
-          } else {
-            console.error('Error al guardar custom item:', customError);
-          }
-        }
-
-        rows.push({
-          quote_id: quote.id,
-          booking_id: null, // debe ser nullable en la DB
-          item_id: isUuid(item.id) && !item.isCustom ? item.id : null, // evita 22P02
-          custom_item_id: customItemId,
+      // 4) Inserta inventory ligado a la cotización
+      if (selectedItems?.length) {
+        const payload = selectedItems.map((item) => ({
+          quote_id: quoteId,
+          item_id: null, // deja null para evitar UUID inválido; ajusta si tienes item_id UUID real
           name: item.name,
           quantity: Number(item.quantity ?? 1),
           volume: Number(item.volume ?? 0),
-          is_custom: Boolean(item.isCustom),
-          short_code: generateShortCode(quote.id),
-        });
-      }
-
-      const { error: inventoryError } = await supabase.from('inventory').insert(rows);
-      if (inventoryError) {
-        console.error('Error al guardar inventory:', inventoryError);
-      }
-
-      // 4. Crea o busca el usuario
-      let userId;
-      const { data: existingUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', email)
-        .maybeSingle();
-
-      if (existingUser) {
-        userId = existingUser.id;
-      } else {
-        const { data: newUser, error: userError } = await supabase
-          .from('users')
-          .insert([{ name, email, phone }])
-          .select()
-          .single();
-        
-        if (userError) {
-          console.error('Error al crear usuario:', userError);
-        } else {
-          userId = newUser.id;
+          is_custom: !!item.isCustom,
+        }));
+        const { error: invErr } = await supabase.from('inventory').insert(payload);
+        if (invErr) {
+          alert('Error al guardar los items: ' + invErr.message);
+          return;
         }
       }
 
-      // 5. Actualiza relaciones con user_id
-      if (userId) {
-        await supabase.from('quotes').update({ user_id: userId }).eq('id', quote.id);
-        if (transportId) {
-          await supabase.from('transports').update({ user_id: userId }).eq('id', transportId);
-        }
-        if (customIds.length > 0) {
-          await supabase.from('custom_items').update({ user_id: userId }).in('id', customIds);
-        }
-      }
-
-      // 6. Enviar correo
+      // 5) Enviar correo con botón de reserva
       try {
-          await fetch(`/api/send-quote/${quote.id}`);
-        } catch (fetchError) {
-          console.error('Error al enviar correo:', fetchError);
-          alert('Cotización guardada, pero no se pudo enviar el correo.');
-        }
+        await fetch(`/api/send-quote/${quoteId}`, { method: 'POST' });
+      } catch (fetchError) {
+        console.error('Error al enviar correo:', fetchError);
+        alert('Cotización guardada, pero no se pudo enviar el correo.');
+      }
 
-
-      // Limpia localStorage
+      // 6) Limpia storage y confirma
       localStorage.removeItem('quarto_inventory');
       localStorage.removeItem('quarto_inventory_photos');
       localStorage.removeItem('quarto_logistics_method');
@@ -255,7 +206,6 @@ const QuoteRequestScreen = ({
       localStorage.removeItem('quarto_booking_contact');
 
       alert('¡Cotización guardada exitosamente! Pronto recibirás tu correo.');
-
     } catch (error) {
       console.error('Error:', error);
       alert('Ocurrió un error. Intenta de nuevo más tarde.');

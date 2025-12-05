@@ -16,6 +16,7 @@ export default function QuoteTemplate(props) {
     name, date, logisticsMethod, totalVolume, transportPrice,
     totalPrice, storagePrice, items, contactName, contactRole,
     contactEmail, website, logoUrl,
+    bookingUrl = '#',  // nueva prop
   } = props;
 
   const hasItems = Array.isArray(items) && items.length > 0;
@@ -137,6 +138,24 @@ export default function QuoteTemplate(props) {
         React.createElement(Section, { style: { padding: "16px 20px", borderTop: `1px solid ${colors.border}`, background: "#ffffff" }, bgcolor: "#ffffff", className: "force-white" },
           React.createElement(Text, { style: { margin: 0, fontSize: "13px", color: colors.muted }}, "Si tienes dudas o quieres modificar tu cotización, contáctanos."),
           React.createElement(Text, { style: { margin: "6px 0 0 0", fontSize: "13px", color: colors.primary, fontWeight: 700 }}, "— Equipo Quarto")
+        ),
+
+        // CTA Reservar ahora
+        React.createElement(Section, { style: { ...sectionPadded, textAlign: "center" }, bgcolor: "#ffffff", className: "force-white" },
+          React.createElement('a', {
+            href: bookingUrl,
+            style: {
+              display: "inline-block",
+              padding: "12px 22px",
+              backgroundColor: colors.primary,
+              color: "#ffffff",
+              borderRadius: "999px",
+              fontWeight: 700,
+              textDecoration: "none",
+              fontSize: "14px",
+              boxShadow: "0 8px 20px rgba(11,95,255,0.25)"
+            }
+          }, "Reservar ahora")
         )
       )
     )

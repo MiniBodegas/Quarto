@@ -95,6 +95,9 @@ export default async function handler(req, res) {
 
     const storagePrice = calculateStoragePrice(totalVolume);
 
+    const baseUrl = process.env.BASE_URL || 'https://tu-dominio.com';
+    const bookingUrl = `${baseUrl}/?quoteId=${id}`;
+
     const html = renderToStaticMarkup(
       QuoteTemplate({
         name: quote.name,
@@ -111,6 +114,7 @@ export default async function handler(req, res) {
         website: 'www.quartoapp.com',
         logoUrl: 'https://ruta-a-tu-logo.com/logo.png',
         signatureUrl: 'https://ruta-a-tu-imagen-de-firma.com/firma.png',
+        bookingUrl,
       })
     );
 
@@ -132,4 +136,8 @@ export default async function handler(req, res) {
     console.error('🔥 send-quote error:', err);
     return res.status(500).json({ error: 'Internal Server Error' });
   }
+}
+
+function render(html) {
+  return html;
 }
