@@ -3,6 +3,8 @@ import { ArrowLeftIcon } from './icons';
 import { ScreenHeader, Button, Input } from '../index';
 import { supabase } from '../../supabase';
 
+const generateShortCode = () => Math.random().toString(36).substring(2, 8).toUpperCase();
+
 const QuoteRequestScreen = ({
   totalVolume,
   totalItems,
@@ -176,11 +178,12 @@ const QuoteRequestScreen = ({
       if (selectedItems?.length) {
         const payload = selectedItems.map((item) => ({
           quote_id: quoteId,
-          item_id: null, // deja null para evitar UUID inválido; ajusta si tienes item_id UUID real
+          item_id: null, // ajusta si tienes UUID real
           name: item.name,
           quantity: Number(item.quantity ?? 1),
           volume: Number(item.volume ?? 0),
           is_custom: !!item.isCustom,
+          short_code: generateShortCode(), // <-- requerido
         }));
         const { error: invErr } = await supabase.from('inventory').insert(payload);
         if (invErr) {
