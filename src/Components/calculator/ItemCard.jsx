@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { TrashIcon } from '../calculator/icons';
 
 const ItemCard = ({ item, onQuantityChange, onRemove }) => {
@@ -56,18 +56,18 @@ const ItemCard = ({ item, onQuantityChange, onRemove }) => {
       onMouseLeave={() => setHovered(false)}
       className={`
         flex flex-col justify-between rounded-2xl border bg-white
-        px-4 py-3 sm:px-5 sm:py-4 transition-all duration-150
+        px-3 py-2.5 sm:px-4 sm:py-3 transition-all duration-150
         ${cardBorder} ${cardShadow}
       `}
     >
       {/* HEADER */}
       <div>
-        <div className="mb-2 flex items-start justify-between gap-2">
+        <div className="mb-1.5 flex items-start justify-between gap-2">
           <div>
-            <h3 className="text-left text-sm font-semibold leading-tight text-[#012E58]">
+            <h3 className="text-left text-[13px] font-semibold leading-tight text-[#012E58]">
               {name}
             </h3>
-            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+            <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
               <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-700">
                 Vol: {baseVolume} m³
               </span>
@@ -80,7 +80,7 @@ const ItemCard = ({ item, onQuantityChange, onRemove }) => {
           {isCustom && (
             <button
               onClick={() => onRemove(id)}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+              className="flex h-6 w-6 items-center justify-center rounded-full text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
               aria-label="Eliminar artículo personalizado"
             >
               <TrashIcon className="h-4 w-4" />
@@ -90,20 +90,20 @@ const ItemCard = ({ item, onQuantityChange, onRemove }) => {
       </div>
 
       {/* CANTIDAD + VOLUMEN */}
-      <div className="mt-2 flex items-center justify-between gap-3">
+      <div className="mt-1.5 flex items-center justify-between gap-2">
         {/* Stepper */}
         <div className="flex flex-col gap-1">
           <span className="text-[11px] uppercase tracking-wide text-slate-400">
             Cantidad
           </span>
-          <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-2 py-1">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-1.5 py-0.5">
             <button
               onClick={handleDecrement}
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-[#012E58] hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#012E58] hover:bg-red-50 hover:text-red-600 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
               disabled={quantity <= 0}
               aria-label="Quitar uno"
             >
-              <i className="material-symbols-outlined text-xl">remove</i>
+              <i className="material-symbols-outlined text-lg">remove</i>
             </button>
             <input
               type="text"
@@ -112,14 +112,14 @@ const ItemCard = ({ item, onQuantityChange, onRemove }) => {
               aria-valuenow={quantity}
               value={quantity}
               onChange={handleInputChange}
-              className="w-10 border-none bg-transparent text-center text-sm font-semibold text-slate-800 focus:outline-none"
+              className="w-9 border-none bg-transparent text-center text-sm font-semibold text-slate-800 focus:outline-none"
             />
             <button
               onClick={handleIncrement}
-              className="flex h-7 w-7 items-center justify-center rounded-full bg-[#012E58] text-white hover:bg-[#001b33] transition-colors"
+              className="flex h-6 w-6 items-center justify-center rounded-full bg-[#012E58] text-white hover:bg-[#001b33] transition-colors"
               aria-label="Agregar uno"
             >
-              <i className="material-symbols-outlined text-xl">add</i>
+              <i className="material-symbols-outlined text-lg">add</i>
             </button>
           </div>
         </div>
