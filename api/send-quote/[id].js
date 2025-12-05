@@ -111,8 +111,8 @@ export default async function handler(req, res) {
         contactName: quote.name,
         contactRole: 'Cliente Quarto',
         contactEmail: quote.email,
-        website: 'www.quartoapp.com',
-        logoUrl: 'https://ruta-a-tu-logo.com/logo.png',
+        website: 'https://quarto.com.co',
+        logoUrl: '../../public/LogoAzul.png',
         signatureUrl: 'https://ruta-a-tu-imagen-de-firma.com/firma.png',
       })
     );
