@@ -41,8 +41,8 @@ function calculateStoragePrice(volume) {
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export default async function handler(req, res) {
-  // Solo permitimos GET, igual que en tu Express
-  if (req.method !== 'GET') {
+  // Solo permitimos POST, igual que en tu Express
+  if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Método no permitido' });
   }
 
