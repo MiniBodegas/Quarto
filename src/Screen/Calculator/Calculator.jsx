@@ -202,6 +202,7 @@ const Calculator = () => {
                         transportPrice={state.transportPrice}
                         selectedItems={selectedItems}
                         onBack={() => dispatch({ type: 'GO_BACK' })}
+                       onSuccess={(name) => dispatch({ type: 'CONFIRM_BOOKING', payload: { name } })}
                     />
                 );
             case 'booking':

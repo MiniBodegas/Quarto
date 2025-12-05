@@ -12,6 +12,7 @@ const QuoteRequestScreen = ({
   transportPrice,
   selectedItems,
   onBack,
+  onSuccess
 }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -26,6 +27,7 @@ const QuoteRequestScreen = ({
       const logisticsMethodLS = localStorage.getItem('quarto_logistics_method') || null;
       const transport = JSON.parse(localStorage.getItem('quarto_transport') || 'null');
       return { inventory, logisticsMethodLS, transport };
+      onSuccess(name)
     } catch (error) {
       console.error('Error leyendo datos desde localStorage:', error);
       return { inventory: [], logisticsMethodLS: null, transport: null };
