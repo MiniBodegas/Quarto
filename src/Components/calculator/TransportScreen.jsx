@@ -190,7 +190,7 @@ const TransportScreen = ({ totalVolume, onContinue, onBack }) => {
 
           <div className="mt-2 rounded-2xl border border-dashed border-slate-200 px-4 py-3 flex items-center justify-between bg-slate-50/60">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 flex justify-start">
                 Estimación del transporte
               </p>
               <p className="text-[11px] text-slate-500">
@@ -203,20 +203,20 @@ const TransportScreen = ({ totalVolume, onContinue, onBack }) => {
           </div>
 
           <div className="pt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <Button
-              onClick={handleContinue}
-              disabled={!isFormValid}
-              className="flex-1 sm:flex-none sm:w-48 !py-2.5 font-bold shadow-lg hover:shadow-xl"
-            >
-              Continuar
-            </Button>
-            <Button
+             <Button
               onClick={onBack}
               variant="secondary"
               icon={<ArrowLeftIcon className="w-5 h-5" />}
               className="flex-1 sm:flex-none sm:w-40 !py-2.5"
             >
               Volver
+            </Button>
+            <Button
+              onClick={handleContinue}
+              disabled={!isFormValid}
+              className="flex-1 sm:flex-none sm:w-48 !py-2.5 font-bold shadow-lg hover:shadow-xl"
+            >
+              Continuar
             </Button>
           </div>
         </div>
