@@ -40,24 +40,10 @@ export default function QuoteTemplate(props) {
       React.createElement('meta', { name: "supported-color-schemes", content: "light" }),
       React.createElement('style', { dangerouslySetInnerHTML: { __html: `
         :root { color-scheme: light only; }
-        body, html, table, tr, td, div, span, p, a, h1, h2, h3, h4, h5, h6 {
-          background-color: #ffffff !important;
-          background: #ffffff !important;
-          color: #333333 !important;
-        }
-        @media (prefers-color-scheme: dark) {
-          body, html, table, tr, td, div, span, p, a, h1, h2, h3, h4, h5, h6 {
-            background-color: #ffffff !important;
-            color: #333333 !important;
-          }
-        }
         img { filter: none !important; }
-        a { color: #0B5FFF !important; }
-        .force-white { background-color: #ffffff !important; color: #333333 !important; }
       ` }})
     ),
     React.createElement(Body, {
-      className: "force-white",
       style: { 
         backgroundColor: "#ffffff", 
         padding: "24px 12px", 
@@ -68,13 +54,12 @@ export default function QuoteTemplate(props) {
     },
       React.createElement(Container, { 
         style: containerStyle, 
-        bgcolor: "#ffffff", 
-        className: "force-white" 
+        bgcolor: "#ffffff"
       },
         // Cabecera
         React.createElement(Section, {
           style: { ...sectionPadded, backgroundColor: colors.headerBg, borderBottom: `1px solid ${colors.border}` },
-          bgcolor: "#ffffff", className: "force-white"
+          bgcolor: "#ffffff"
         },
           React.createElement(Row, null,
             React.createElement(Column, { style: { width: "64px", verticalAlign: "top" }},
@@ -94,7 +79,7 @@ export default function QuoteTemplate(props) {
         ),
 
         // Contacto
-        React.createElement(Section, { style: { ...sectionPadded, borderBottom: `1px solid ${colors.border}` }, bgcolor: "#ffffff", className: "force-white" },
+        React.createElement(Section, { style: { ...sectionPadded, borderBottom: `1px solid ${colors.border}` }, bgcolor: "#ffffff" },
           React.createElement(Row, null,
             React.createElement(Column, null,
               React.createElement(Text, { style: { margin: 0, fontWeight: 700, color: colors.dark }}, contactName),
@@ -104,7 +89,7 @@ export default function QuoteTemplate(props) {
           )
         ),
 
-        // Resumen (DENTRO de Container, ajustado)
+        // Resumen
         React.createElement(Section, {
           style: {
             padding: "20px",
@@ -114,136 +99,76 @@ export default function QuoteTemplate(props) {
             margin: "20px",
             width: "calc(100% - 40px)",
           },
-          bgcolor: "#F8F9FA",
-          className: "force-white"
+          bgcolor: "#F8F9FA"
         },
-          // Fila 1: Método logístico
           React.createElement(Row, { style: { marginBottom: "12px" }},
             React.createElement(Column, { style: { textAlign: "left", paddingRight: "10px" }},
-              React.createElement(Text, { style: { 
-                margin: 0, 
-                fontSize: "14px", 
-                color: "#666666",
-                backgroundColor: "#F8F9FA"
-              }}, "Método logístico:")
+              React.createElement(Text, { style: { margin: 0, fontSize: "14px", color: "#666666" }}, "Método logístico:")
             ),
             React.createElement(Column, { style: { textAlign: "right", paddingLeft: "10px" }},
-              React.createElement(Text, { style: { 
-                margin: 0, 
-                fontSize: "14px", 
-                fontWeight: 600, 
-                color: "#012E58",
-                backgroundColor: "#F8F9FA"
-              }}, logisticsMethod)
+              React.createElement(Text, { style: { margin: 0, fontSize: "14px", fontWeight: 600, color: "#012E58" }}, logisticsMethod)
             )
           ),
 
-          // Fila 2: Volumen total
           React.createElement(Row, { style: { marginBottom: "12px" }},
             React.createElement(Column, { style: { textAlign: "left", paddingRight: "10px" }},
-              React.createElement(Text, { style: { 
-                margin: 0, 
-                fontSize: "14px", 
-                color: "#666666",
-                backgroundColor: "#F8F9FA"
-              }}, "Volumen total:")
+              React.createElement(Text, { style: { margin: 0, fontSize: "14px", color: "#666666" }}, "Volumen total:")
             ),
             React.createElement(Column, { style: { textAlign: "right", paddingLeft: "10px" }},
-              React.createElement(Text, { style: { 
-                margin: 0, 
-                fontSize: "14px", 
-                fontWeight: 600, 
-                color: "#012E58",
-                backgroundColor: "#F8F9FA"
-              }}, `${Number(totalVolume ?? 0).toFixed(2)} m³`)
+              React.createElement(Text, { style: { margin: 0, fontSize: "14px", fontWeight: 600, color: "#012E58" }}, `${Number(totalVolume ?? 0).toFixed(2)} m³`)
             )
           ),
 
-          // Fila 3: Precio logístico
           React.createElement(Row, { style: { marginBottom: "12px" }},
             React.createElement(Column, { style: { textAlign: "left", paddingRight: "10px" }},
-              React.createElement(Text, { style: { 
-                margin: 0, 
-                fontSize: "14px", 
-                color: "#666666",
-                backgroundColor: "#F8F9FA"
-              }}, "Precio logístico:")
+              React.createElement(Text, { style: { margin: 0, fontSize: "14px", color: "#666666" }}, "Precio logístico:")
             ),
             React.createElement(Column, { style: { textAlign: "right", paddingLeft: "10px" }},
-              React.createElement(Text, { style: { 
-                margin: 0, 
-                fontSize: "14px", 
-                fontWeight: 600, 
-                color: "#012E58",
-                backgroundColor: "#F8F9FA"
-              }}, `$${Number(transportPrice ?? 0).toLocaleString()}`)
+              React.createElement(Text, { style: { margin: 0, fontSize: "14px", fontWeight: 600, color: "#012E58" }}, `$${Number(transportPrice ?? 0).toLocaleString()}`)
             )
           ),
 
-          // Fila 4: Almacenamiento
           React.createElement(Row, { style: { marginBottom: "16px", paddingBottom: "12px", borderBottom: `1px dashed ${colors.border}` }},
             React.createElement(Column, { style: { textAlign: "left", paddingRight: "10px" }},
-              React.createElement(Text, { style: { 
-                margin: 0, 
-                fontSize: "14px", 
-                color: "#666666",
-                backgroundColor: "#F8F9FA"
-              }}, "Almacenamiento (mensual):")
+              React.createElement(Text, { style: { margin: 0, fontSize: "14px", color: "#666666" }}, "Almacenamiento (mensual):")
             ),
             React.createElement(Column, { style: { textAlign: "right", paddingLeft: "10px" }},
-              React.createElement(Text, { style: { 
-                margin: 0, 
-                fontSize: "14px", 
-                fontWeight: 600, 
-                color: "#012E58",
-                backgroundColor: "#F8F9FA"
-              }}, `$${Number(storagePrice ?? totalPrice ?? 0).toLocaleString()}`)
+              React.createElement(Text, { style: { margin: 0, fontSize: "14px", fontWeight: 600, color: "#012E58" }}, `$${Number(storagePrice ?? totalPrice ?? 0).toLocaleString()}`)
             )
           ),
 
-          // Fila 5: TOTAL (destacado)
           React.createElement(Row, null,
             React.createElement(Column, { style: { textAlign: "left", paddingRight: "10px" }},
-              React.createElement(Text, { style: { 
-                margin: 0, 
-                fontSize: "16px", 
-                fontWeight: 900, 
-                color: "#012E58",
-                backgroundColor: "#F8F9FA"
-              }}, "Total cotización:")
+              React.createElement(Text, { style: { margin: 0, fontSize: "16px", fontWeight: 900, color: "#012E58" }}, "Total cotización:")
             ),
             React.createElement(Column, { style: { textAlign: "right", paddingLeft: "10px" }},
-              React.createElement(Text, { style: { 
-                margin: 0, 
-                fontSize: "18px", 
-                fontWeight: 900, 
-                color: "#0B5FFF",
-                backgroundColor: "#F8F9FA"
-              }}, `$${Number((storagePrice ?? 0) + (transportPrice ?? 0)).toLocaleString()}`)
+              React.createElement(Text, { style: { margin: 0, fontSize: "18px", fontWeight: 900, color: "#0B5FFF" }}, `$${Number((storagePrice ?? 0) + (transportPrice ?? 0)).toLocaleString()}`)
             )
           )
         ),
 
         // CTA Reservar ahora
-        React.createElement(Section, { style: { ...sectionPadded, textAlign: "center" }, bgcolor: "#ffffff", className: "force-white" },
+        React.createElement(Section, { style: { ...sectionPadded, textAlign: "center" }, bgcolor: "#ffffff" },
           React.createElement('a', {
             href: bookingUrl,
             style: {
               display: "inline-block",
               padding: "14px 28px",
-              backgroundColor: colors.primary,
+              backgroundColor: "#0B5FFF",
               color: "#ffffff",
               borderRadius: "8px",
               fontWeight: 700,
               textDecoration: "none",
               fontSize: "15px",
-              boxShadow: "0 8px 20px rgba(11,95,255,0.25)"
+              boxShadow: "0 8px 20px rgba(11,95,255,0.25)",
+              letterSpacing: "0.5px",
+              textTransform: "uppercase"
             }
-          }, "🔒 Reservar ahora")
+          }, "Reservar ahora")
         ),
 
         // Artículos
-        React.createElement(Section, { style: { padding: "0 20px 20px 20px" }, bgcolor: "#ffffff", className: "force-white" },
+        React.createElement(Section, { style: { padding: "0 20px 20px 20px" }, bgcolor: "#ffffff" },
           React.createElement(Text, { style: { fontWeight: 700, color: colors.dark, fontSize: "14px", margin: "0 0 8px 0" }}, "Artículos cotizados:"),
           React.createElement('table', { style: { width: "100%", borderCollapse: "collapse", border: `1px solid ${colors.border}`, background: "#ffffff" }, bgcolor: "#ffffff" },
             React.createElement('thead', null,
@@ -270,7 +195,7 @@ export default function QuoteTemplate(props) {
         ),
 
         // Footer
-        React.createElement(Section, { style: { padding: "16px 20px", borderTop: `1px solid ${colors.border}`, background: "#ffffff" }, bgcolor: "#ffffff", className: "force-white" },
+        React.createElement(Section, { style: { padding: "16px 20px", borderTop: `1px solid ${colors.border}`, background: "#ffffff" }, bgcolor: "#ffffff" },
           React.createElement(Text, { style: { margin: 0, fontSize: "13px", color: colors.muted }}, "Si tienes dudas o quieres modificar tu cotización, contáctanos."),
           React.createElement(Text, { style: { margin: "6px 0 0 0", fontSize: "13px", color: colors.primary, fontWeight: 700 }}, "— Equipo Quarto")
         )
