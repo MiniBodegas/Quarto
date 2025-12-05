@@ -82,19 +82,19 @@ const FinalSummaryScreen = ({ totalVolume, totalItems, logisticsMethod, transpor
                             {/* Secundarios alineados en fila */}
                             <div className="grid grid-cols-2 gap-3">
                                 <Button
-                                    variant="outline"
-                                    onClick={onGoToQuote}
-                                    className="!py-2.5 font-semibold"
-                                >
-                                    Enviar cotización
-                                </Button>
-                                <Button
                                     variant="secondary"
                                     onClick={onBack}
                                     icon={<ArrowLeftIcon className="w-4 h-4" />}
                                     className="!py-2.5 font-semibold"
                                 >
                                     Volver
+                                </Button>
+                                 <Button
+                                    variant="outline"
+                                    onClick={onGoToQuote}
+                                    className="!py-2.5 font-semibold"
+                                >
+                                    Enviar cotización
                                 </Button>
                             </div>
                         </div>
