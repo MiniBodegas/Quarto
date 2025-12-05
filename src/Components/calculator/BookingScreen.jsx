@@ -297,10 +297,6 @@ const BookingScreen = ({
         />
 
         <div className="mt-4 bg-white/95 backdrop-blur rounded-3xl shadow-xl border border-slate-200 p-6 sm:p-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#012E58]/6 text-[#012E58] text-sm font-semibold mb-4">
-            <span>📝</span> Datos de contacto
-          </div>
-
           <form onSubmit={handleSubmit} className="space-y-7">
             <div className="space-y-6">
               <Select
