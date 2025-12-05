@@ -89,19 +89,19 @@ const Summary = ({
 
       <div className="pt-1 flex gap-2 justify-between">
         <Button
-          onClick={onContinue}
-          disabled={!hasItems}
-          className="flex-1 !py-2"
-        >
-          Continuar
-        </Button>
-        <Button
           variant="danger"
           onClick={onClearAll}
           disabled={!hasItems}
           className="flex-1 !px-3 !py-2"
         >
           Vaciar inventario
+        </Button>
+         <Button
+          onClick={onContinue}
+          disabled={!hasItems}
+          className="flex-1 !py-2"
+        >
+          Continuar
         </Button>
       </div>
     </div>
