@@ -77,9 +77,6 @@ const ResultsScreen = ({ totalVolume, totalItems, onBack, onContinue }) => {
         />
 
         <div className="mt-4 bg-white/95 backdrop-blur rounded-3xl shadow-xl border border-slate-200 p-6 sm:p-8 space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#012E58]/6 text-[#012E58] text-sm font-semibold">
-            <span>🚚</span> Elige tu método logístico
-          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {logisticsOptions.map((option) => (
@@ -93,13 +90,7 @@ const ResultsScreen = ({ totalVolume, totalItems, onBack, onContinue }) => {
           </div>
 
           <div className="pt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <Button
-              onClick={() => selectedMethod && handleContinue(selectedMethod)}
-              disabled={!selectedMethod}
-              className="flex-1 sm:flex-none sm:w-48 !py-2.5 font-bold shadow-lg hover:shadow-xl"
-            >
-              Continuar
-            </Button>
+            
             <Button
               variant="secondary"
               onClick={onBack}
@@ -107,6 +98,13 @@ const ResultsScreen = ({ totalVolume, totalItems, onBack, onContinue }) => {
               className="flex-1 sm:flex-none sm:w-48 !py-2.5"
             >
               Volver al inventario
+            </Button>
+            <Button
+              onClick={() => selectedMethod && handleContinue(selectedMethod)}
+              disabled={!selectedMethod}
+              className="flex-1 sm:flex-none sm:w-48 !py-2.5 font-bold shadow-lg hover:shadow-xl"
+            >
+              Continuar
             </Button>
           </div>
         </div>
