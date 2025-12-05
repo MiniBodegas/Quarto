@@ -86,10 +86,10 @@ const FinalSummaryScreen = ({ totalVolume, totalItems, logisticsMethod, transpor
                                 >
                                     Volver
                                 </Button>
-                                 <Button
+                                <Button
                                     variant="outline"
                                     onClick={onGoToQuote}
-                                    className="!py-2.5 font-semibold"
+                                    className="!py-2.5 font-semibold !border-2 !border-[#0B5FFF] !text-[#0B5FFF] hover:!bg-[#0B5FFF]/5"
                                 >
                                     Enviar cotización
                                 </Button>

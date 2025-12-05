@@ -247,10 +247,10 @@ export default function QuoteTemplate(props) {
           React.createElement(Text, { style: { fontWeight: 700, color: colors.dark, fontSize: "14px", margin: "0 0 8px 0" }}, "Artículos cotizados:"),
           React.createElement('table', { style: { width: "100%", borderCollapse: "collapse", border: `1px solid ${colors.border}`, background: "#ffffff" }, bgcolor: "#ffffff" },
             React.createElement('thead', null,
-              React.createElement('tr', { style: { background: colors.tableHeaderBg }},
-                React.createElement('th', { style: { textAlign: "left", padding: "10px", fontSize: "13px", color: colors.dark, background: colors.tableHeaderBg, fontWeight: 700 }, bgcolor: colors.tableHeaderBg }, "Artículo"),
-                React.createElement('th', { style: { textAlign: "center", padding: "10px", fontSize: "13px", color: colors.dark, background: colors.tableHeaderBg, fontWeight: 700 }, bgcolor: colors.tableHeaderBg }, "Cantidad"),
-                React.createElement('th', { style: { textAlign: "right", padding: "10px", fontSize: "13px", color: colors.dark, background: colors.tableHeaderBg, fontWeight: 700 }, bgcolor: colors.tableHeaderBg }, "Volumen")
+              React.createElement('tr', { style: { background: "#0B5FFF" }},
+                React.createElement('th', { style: { textAlign: "left", padding: "10px", fontSize: "13px", color: "#ffffff", background: "#0B5FFF", fontWeight: 700 }, bgcolor: "#0B5FFF" }, "Artículo"),
+                React.createElement('th', { style: { textAlign: "center", padding: "10px", fontSize: "13px", color: "#ffffff", background: "#0B5FFF", fontWeight: 700 }, bgcolor: "#0B5FFF" }, "Cantidad"),
+                React.createElement('th', { style: { textAlign: "right", padding: "10px", fontSize: "13px", color: "#ffffff", background: "#0B5FFF", fontWeight: 700 }, bgcolor: "#0B5FFF" }, "Volumen")
               )
             ),
             React.createElement('tbody', null,
