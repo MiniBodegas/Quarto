@@ -28,7 +28,7 @@ function appReducer(state, action) {
             };
         case 'SET_TRANSPORT_PRICE':
             return { ...state, view: 'finalSummary', transportPrice: action.payload };
-        case 'CONFIRM_BOOKING'
+        case 'CONFIRM_BOOKING':
             return { ...state, view: 'confirmation', customerName: action.payload.name };
         case 'RESET_APP':
             return { ...initialState };
