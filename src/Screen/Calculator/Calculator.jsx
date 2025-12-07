@@ -350,7 +350,7 @@ const Calculator = () => {
             .single();
           if (!quote) return;
 
-          // 2) Traer inventario asociado
+          // 2) Traer inventario asociado DE LA DB
           const { data: inv } = await supabase
             .from('inventory')
             .select('*')
@@ -368,20 +368,27 @@ const Calculator = () => {
             depth: r.depth,
           }));
 
-          // 4) Guardar DIRECTAMENTE en localStorage
-          localStorage.setItem('quarto_inventory', JSON.stringify(mapped));
+          // 4) CARGAR ITEMS DIRECTAMENTE AL HOOK (sin localStorage)
+          clearAll();
+          mapped.forEach((m) => {
+            const added = addItem(m);
+            if (m.quantity > 1) {
+              updateItemQuantity(added.id, m.quantity);
+            }
+          });
 
-          // 5) Prellenar datos del usuario
+          // 5) Prellenar datos del usuario EN ESTADO (no en localStorage)
+          // Guarda en localStorage solo como backup para BookingScreen
           localStorage.setItem('quarto_user', JSON.stringify({
             name: quote.name,
             email: quote.email,
             phone: quote.phone,
           }));
 
-          // 6) Guardar método logístico en localStorage
+          // 6) Guardar método logístico
           localStorage.setItem('quarto_logistics_method', quote.logistics_method);
           
-          // 7) Si hay transporte, guardarlo también
+          // 7) Si hay transporte, guardarlo
           if (quote.logistics_method === 'Recogida' && quote.Trasnport_id) {
             const { data: transport } = await supabase
               .from('transports')
@@ -402,13 +409,13 @@ const Calculator = () => {
             dispatch({ type: 'SET_TRANSPORT_PRICE', payload: quote.transport_price });
           }
 
-          // 9) Limpiar query string para evitar bucle
+          // 9) Limpiar query string
           window.history.replaceState({}, '', window.location.pathname);
 
           // 10) Navegar a booking
           dispatch({ type: 'NAVIGATE_TO', payload: 'booking' });
         })();
-    }, [dispatch]);
+    }, [dispatch, addItem, updateItemQuantity, clearAll]);
 
     return (
         <div className={`Calculator ${opacityClass} flex flex-col h-screen overflow-hidden`}>
