@@ -1,14 +1,9 @@
 // api/send-quote/[id].js
 import { Resend } from 'resend';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { createClient } from '@supabase/supabase-js';
 import QuoteTemplate from '../../src/mail/QuoteTemplate.js';
+import { supabase } from '../../src/supabase.js';
 
-// ⚠️ Cliente admin solo para backend (usa service_role)
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 // La misma función de precios que tenías
 function calculateStoragePrice(volume) {
