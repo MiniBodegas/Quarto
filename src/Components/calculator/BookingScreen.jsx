@@ -271,55 +271,73 @@ const BookingScreen = ({
         await supabase.from('transports').update({ booking_id: bookingId }).eq('id', transportId);
       }
 
-      const inv = JSON.parse(localStorage.getItem('quarto_inventory') || '[]');
-      for (const item of inv) {
-        let customItemId = null;
-
-        if (item.isCustom) {
-          const { data: customData, error: customError } = await supabase
-            .from('custom_items')
-            .insert([
-              {
-                name: item.name,
-                width: item.width,
-                height: item.height,
-                depth: item.depth,
-                volume: item.volume,
-              },
-            ])
-            .select()
-            .single();
-
-          if (customError) {
-            console.error('Error al guardar custom item:', customError);
-            continue;
-          }
-          customItemId = customData.id;
-
-          if (userId) {
-            await supabase.from('custom_items').update({ user_id: userId }).eq('id', customItemId);
-          }
+      // IMPORTANTE: Si esta reserva viene de una cotización, actualiza los items
+      // existentes en inventory que tienen quote_id pero sin booking_id
+      const quoteId = new URLSearchParams(window.location.search).get('quoteId');
+      if (quoteId) {
+        const { error: updateInventoryError } = await supabase
+          .from('inventory')
+          .update({ booking_id: bookingId, quote_id: null })
+          .eq('quote_id', quoteId)
+          .is('booking_id', null);  // Solo actualiza los que NO tienen booking_id
+        
+        if (updateInventoryError) {
+          console.error('Error actualizando inventory de cotización:', updateInventoryError);
         }
+      }
 
-        const quantity = Number(item.quantity ?? 1);
-        const volume = Number(item.volume ?? 0);
+     // Solo inserta items nuevos si NO vienen de una cotización
+     if (!quoteId) {
+        const inv = JSON.parse(localStorage.getItem('quarto_inventory') || '[]');
+        for (const item of inv) {
+          let customItemId = null;
 
-        const inventoryPayload = {
-          booking_id: bookingId,
-          item_id: !item.isCustom && item.id && typeof item.id === 'string' && item.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) ? item.id : null,
-          custom_item_id: customItemId,
-          name: item.name,
-          quantity,
-          volume,
-          is_custom: item.isCustom ?? false,
-          short_code: generateShortCode(),
-        };
+          if (item.isCustom) {
+            const { data: customData, error: customError } = await supabase
+              .from('custom_items')
+              .insert([
+                {
+                  name: item.name,
+                  width: item.width,
+                  height: item.height,
+                  depth: item.depth,
+                  volume: item.volume,
+                },
+              ])
+              .select()
+              .single();
 
-        const { error: invError } = await supabase.from('inventory').insert([inventoryPayload]);
-        if (invError) {
-          console.error('Error al guardar inventory:', invError);
-          alert('No pudimos guardar el inventario. Intenta de nuevo.');
-          return;
+            if (customError) {
+              console.error('Error al guardar custom item:', customError);
+              continue;
+            }
+            customItemId = customData.id;
+
+            if (userId) {
+              await supabase.from('custom_items').update({ user_id: userId }).eq('id', customItemId);
+            }
+          }
+
+          const quantity = Number(item.quantity ?? 1);
+          const volume = Number(item.volume ?? 0);
+
+          const inventoryPayload = {
+            booking_id: bookingId,
+            item_id: !item.isCustom && item.id && typeof item.id === 'string' && item.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) ? item.id : null,
+            custom_item_id: customItemId,
+            name: item.name,
+            quantity,
+            volume,
+            is_custom: item.isCustom ?? false,
+            short_code: generateShortCode(),
+          };
+
+          const { error: invError } = await supabase.from('inventory').insert([inventoryPayload]);
+          if (invError) {
+            console.error('Error al guardar inventory:', invError);
+            alert('No pudimos guardar el inventario. Intenta de nuevo.');
+            return;
+          }
         }
       }
 
