@@ -343,7 +343,7 @@ const Calculator = () => {
 
         (async () => {
           try {
-            // 1) Traer cotización - SINTAXIS CORRECTA
+            // 1) Traer cotización
             const { data: quote, error: quoteError } = await supabase
               .from('quotes')
               .select('*')
@@ -366,16 +366,16 @@ const Calculator = () => {
               return;
             }
 
-            // 3) Mapear a tu forma local
+            // 3) Mapear a tu forma local - ASEGÚRATE DE QUE VOLUME SEA UN NÚMERO
             const mapped = (inv || []).map((r) => ({
               id: r.item_id || r.custom_item_id || r.id,
               name: r.name,
-              volume: Number(r.volume) || 0,
-              quantity: Number(r.quantity) || 0,
+              volume: parseFloat(r.volume) || 0,  // Convierte a número
+              quantity: parseInt(r.quantity) || 0,  // Convierte a número
               isCustom: r.is_custom,
-              width: r.width,
-              height: r.height,
-              depth: r.depth,
+              width: parseFloat(r.width) || 0,
+              height: parseFloat(r.height) || 0,
+              depth: parseFloat(r.depth) || 0,
             }));
 
             // 4) CARGAR ITEMS DIRECTAMENTE AL HOOK
@@ -425,7 +425,9 @@ const Calculator = () => {
             window.history.replaceState({}, '', window.location.pathname);
 
             // 10) Navegar a booking
-            dispatch({ type: 'NAVIGATE_TO', payload: 'booking' });
+            setTimeout(() => {
+             dispatch({ type: 'NAVIGATE_TO', payload: 'booking' });
+           }, 100);  // Pequeño delay para asegurar que los items estén cargados
           } catch (error) {
             console.error('Error en useEffect quoteId:', error);
           }
