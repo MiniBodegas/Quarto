@@ -368,7 +368,7 @@ const Calculator = () => {
             depth: r.depth,
           }));
 
-          // 4) Guardar DIRECTAMENTE en localStorage (sin pasar por addItem)
+          // 4) Guardar DIRECTAMENTE en localStorage
           localStorage.setItem('quarto_inventory', JSON.stringify(mapped));
 
           // 5) Prellenar datos del usuario
@@ -402,13 +402,13 @@ const Calculator = () => {
             dispatch({ type: 'SET_TRANSPORT_PRICE', payload: quote.transport_price });
           }
 
-          // 9) Navegar a booking
+          // 9) Limpiar query string para evitar bucle
+          window.history.replaceState({}, '', window.location.pathname);
+
+          // 10) Navegar a booking
           dispatch({ type: 'NAVIGATE_TO', payload: 'booking' });
-          
-          // 10) Forzar recarga de la página para que useInventory lea el localStorage
-          window.location.reload();
         })();
-    }, []); // Sin dependencias, solo se ejecuta al montar
+    }, [dispatch]);
 
     return (
         <div className={`Calculator ${opacityClass} flex flex-col h-screen overflow-hidden`}>
