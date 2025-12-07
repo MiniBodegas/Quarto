@@ -98,6 +98,9 @@ export default async function handler(req, res) {
 
     const storagePrice = calculateStoragePrice(totalVolume);
 
+    const baseUrl = process.env.BASE_URL || 'https://quarto-navy.vercel.app';
+    const bookingUrl = `${baseUrl}/?quoteId=${id}`;
+
     const html = renderToStaticMarkup(
       QuoteTemplate({
         name: quote.name,
@@ -108,12 +111,12 @@ export default async function handler(req, res) {
         totalPrice: storagePrice,
         storagePrice,
         items: plainItems,
-        contactName: quote.name,
-        contactRole: 'Cliente Quarto',
-        contactEmail: quote.email,
-        website: 'https://quarto.com.co',
-        logoUrl: '../../public/LogoAzul.png',
-        signatureUrl: 'https://ruta-a-tu-imagen-de-firma.com/firma.png',
+        contactName: 'Equipo Quarto',
+        contactRole: 'Asesor de almacenamiento',
+        contactEmail: 'hola@quarto.com.co',
+        website: 'quarto.com.co',
+        logoUrl: `${baseUrl}/LogoAzul.png`,
+        bookingUrl,
       })
     );
 

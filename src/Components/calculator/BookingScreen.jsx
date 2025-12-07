@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowLeftIcon } from './icons';
 import { ScreenHeader, Button, Input, Select } from '../index';
 import { supabase } from '../../supabase'; // 👈 IMPORTANTE
@@ -50,6 +50,14 @@ const BookingScreen = ({
   const [emailError, setEmailError] = useState('');
   const [phoneError, setPhoneError] = useState('');
   const [touched, setTouched] = useState({ email: false, phone: false });
+
+  useEffect(() => {
+    // Prellena datos si vienen del email
+    const userData = JSON.parse(localStorage.getItem('quarto_user') || '{}');
+    if (userData.name) setName(userData.name);
+    if (userData.email) setEmail(userData.email);
+    if (userData.phone) setPhone(userData.phone);
+  }, []);
 
   const loadFromLocalStorage = () => {
     try {

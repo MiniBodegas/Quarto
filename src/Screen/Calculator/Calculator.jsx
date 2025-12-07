@@ -336,6 +336,67 @@ const Calculator = () => {
         }
     };
 
+    useEffect(() => {
+        const quoteId = new URLSearchParams(window.location.search).get('quoteId');
+        if (!quoteId) return;
+
+        (async () => {
+          // 1) Traer cotización
+          const { data: quote } = await supabase
+            .from('quotes')
+            .select('*')
+            .eq('id', quoteId)
+            .single();
+          if (!quote) return;
+
+          // 2) Traer inventario asociado
+          const { data: inv } = await supabase
+            .from('inventory')
+            .select('*')
+            .eq('quote_id', quoteId);
+
+          // 3) Mapear a tu forma local
+          const mapped = (inv || []).map((r) => ({
+            id: r.item_id || r.custom_item_id || r.id,
+            name: r.name,
+            volume: Number(r.volume) || 0,
+            quantity: Number(r.quantity) || 0,
+            isCustom: r.is_custom,
+          }));
+
+          // 4) Limpiar y cargar en tu inventario
+          clearAll();
+          mapped.forEach((m) => {
+            const added = addItem(m);
+            if (m.quantity > 1) {
+              updateItemQuantity(added.id, m.quantity);
+            }
+          });
+
+          // 5) Guardar en localStorage
+          localStorage.setItem('quarto_inventory', JSON.stringify(mapped));
+
+          // 6) Prellenar datos del usuario en localStorage para BookingScreen
+          localStorage.setItem('quarto_user', JSON.stringify({
+            name: quote.name,
+            email: quote.email,
+            phone: quote.phone,
+          }));
+
+          // 7) Hidratar logística y precio
+          dispatch({
+            type: 'SELECT_LOGISTICS',
+            payload: quote.logistics_method === 'Recogida' ? 'Recogida' : 'En bodega',
+          });
+          if (quote.transport_price != null) {
+            dispatch({ type: 'SET_TRANSPORT_PRICE', payload: quote.transport_price });
+          }
+
+          // 8) Navegar directo a booking (no a calculator)
+          dispatch({ type: 'NAVIGATE_TO', payload: 'booking' });
+        })();
+      }, [addItem, clearAll, updateItemQuantity, dispatch]);
+
     return (
         <div className={`min-h-screen flex flex-col ${opacityClass}`}>
             <main className="flex-grow flex flex-col">{renderScreen()}</main>
