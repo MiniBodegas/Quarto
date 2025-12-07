@@ -59,6 +59,18 @@ const BookingScreen = ({
     if (userData.phone) setPhone(userData.phone);
   }, []);
 
+  // CALCULA totales desde localStorage (para ambos flujos)
+  useEffect(() => {
+    const inventory = JSON.parse(localStorage.getItem('quarto_inventory') || '[]');
+    if (inventory.length > 0 && totalItems === 0) {
+      // Si viene de quoteId, el hook ya cargó los items
+      // Si viene de flujo directo, recalcula desde localStorage
+      const calculatedItems = inventory.reduce((sum, item) => sum + (item.quantity ?? 1), 0);
+      const calculatedVolume = inventory.reduce((sum, item) => sum + (item.volume ?? 0) * (item.quantity ?? 1), 0);
+      console.log('Items calculados:', calculatedItems, 'Volumen:', calculatedVolume);
+    }
+  }, [totalItems]);
+
   const loadFromLocalStorage = () => {
     try {
       const inventory = JSON.parse(localStorage.getItem('quarto_inventory') || '[]');
@@ -157,14 +169,18 @@ const BookingScreen = ({
     }
 
     const { inventory, logisticsMethodLS, transport } = loadFromLocalStorage();
-    const photos = JSON.parse(localStorage.getItem('quarto_inventory_photos') || '{}');
 
     const finalLogisticsMethod = logisticsMethodLS || logisticsMethod;
-    const finalTotalItems =
-      totalItems ?? inventory.reduce((sum, item) => sum + (item.quantity ?? 1), 0);
-    const finalTotalVolume =
-      totalVolume ??
-      inventory.reduce((sum, item) => sum + (item.volume ?? 0) * (item.quantity ?? 1), 0);
+    // IMPORTANTE: Usa inventory.length como fallback si totalItems es 0
+    const finalTotalItems = 
+      totalItems && totalItems > 0 
+        ? totalItems 
+        : inventory.reduce((sum, item) => sum + (item.quantity ?? 1), 0);
+    
+    const finalTotalVolume = 
+      totalVolume && totalVolume > 0
+        ? totalVolume
+        : inventory.reduce((sum, item) => sum + (item.volume ?? 0) * (item.quantity ?? 1), 0);
 
     const bookingPayload = {
       booking_type: bookingType,
@@ -181,10 +197,12 @@ const BookingScreen = ({
       total_volume: finalTotalVolume,
       logistics_method: finalLogisticsMethod,
       transport_price:
-        finalLogisticsMethod === 'En bodega' ? 0 : transport?.transport_price ?? transportPrice ?? null,
+        finalLogisticsMethod === 'En bodega' 
+          ? 0 
+          : transport?.transport_price ?? transportPrice ?? 0,
     };
 
-    console.log('Guardando reserva en Supabase:', bookingPayload);
+    console.log('Guardando reserva:', bookingPayload);
 
     try {
       // 1) Upsert usuario por email (evita error 409)
@@ -213,25 +231,41 @@ const BookingScreen = ({
         userId = newUser.id;
       }
 
-      // 2) Inserta la reserva con userId válido
+      // 2) Inserta la reserva con TODOS los datos del payload
       const { data: booking, error: bookingError } = await supabase
         .from('bookings')
         .insert([{
-          user_id: userId,  // <-- AQUÍ asegúrate de que userId no sea null
-          name,
-          email,
-          phone,
-          total_volume: totalVolume,
-          total_items: totalItems,
-          // ... resto de campos
+          user_id: userId,
+          booking_type: bookingPayload.booking_type,
+          company_name: bookingPayload.company_name,
+          company_nit: bookingPayload.company_nit,
+          name: bookingPayload.name,
+          email: bookingPayload.email,
+          phone: bookingPayload.phone,
+          document_type: bookingPayload.document_type,
+          document_number: bookingPayload.document_number,
+          date: bookingPayload.date,
+          time_slot: bookingPayload.time_slot,
+          total_volume: bookingPayload.total_volume,
+          total_items: bookingPayload.total_items,
+          logistics_method: bookingPayload.logistics_method,
+          transport_price: bookingPayload.transport_price,
         }])
         .select()
         .single();
+      
       if (bookingError) {
         console.error('Error en booking:', bookingError);
+        alert('Error al guardar la reserva: ' + bookingError.message);
         return;
       }
       const bookingId = booking.id;
+
+      // Después de crear la reserva, busca transportId si existe
+      let transportId = null;
+      if (transport?.id) {
+        transportId = transport.id;
+      }
 
       if (transportId) {
         await supabase.from('transports').update({ booking_id: bookingId }).eq('id', transportId);
