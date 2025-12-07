@@ -187,37 +187,51 @@ const BookingScreen = ({
     console.log('Guardando reserva en Supabase:', bookingPayload);
 
     try {
-      const { data: userData } = await supabase
+      // 1) Upsert usuario por email (evita error 409)
+      let userId = null;
+      const { data: existingUser } = await supabase
         .from('users')
-        .insert([{ name, email, phone }])
-        .select()
-        .single();
-      const userId = userData.id;
+        .select('id')
+        .eq('email', email)
+        .maybeSingle();
 
-      let transportId = null;
-      if (logisticsMethod === 'Recogida') {
-        const { data: transportData, error: transportError } = await supabase
-          .from('transports')
-          .insert([{ ...transport, user_id: userId }])
+      if (existingUser) {
+        userId = existingUser.id;
+        // Actualiza los datos si ya existe
+        await supabase.from('users').update({ name, phone }).eq('id', userId);
+      } else {
+        const { data: newUser, error: userError } = await supabase
+          .from('users')
+          .insert([{ name, email, phone }])
           .select()
           .single();
-        if (transportError) {
-          console.error('Error en transporte:', transportError);
+        if (userError) {
+          console.error('Error usuario:', userError);
+          alert('No pudimos crear el usuario');
           return;
         }
-        transportId = transportData.id;
+        userId = newUser.id;
       }
 
-      const { data: bookingData, error: bookingError } = await supabase
+      // 2) Inserta la reserva con userId válido
+      const { data: booking, error: bookingError } = await supabase
         .from('bookings')
-        .insert([{ ...bookingPayload, user_id: userId, transport_id: transportId }])
+        .insert([{
+          user_id: userId,  // <-- AQUÍ asegúrate de que userId no sea null
+          name,
+          email,
+          phone,
+          total_volume: totalVolume,
+          total_items: totalItems,
+          // ... resto de campos
+        }])
         .select()
         .single();
       if (bookingError) {
         console.error('Error en booking:', bookingError);
         return;
       }
-      const bookingId = bookingData.id;
+      const bookingId = booking.id;
 
       if (transportId) {
         await supabase.from('transports').update({ booking_id: bookingId }).eq('id', transportId);
