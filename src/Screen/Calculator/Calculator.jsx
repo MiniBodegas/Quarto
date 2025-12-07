@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback, useEffect, useReducer } from 'react';
+import  { useReducer, useEffect,useState,useCallback, useMemo } from 'react';
+import { supabase } from '../../supabase';
 import { useItemsByCategory, useInventory } from '../../hooks';
 import { AddItemForm, Summary, ConfirmModal, ItemCard, ResultsScreen, TransportScreen, FinalSummaryScreen, QuoteRequestScreen, BookingScreen, ConfirmationScreen, ScreenHeader, Input, Button } from '../../Components';
 import { SearchIcon, ChevronDownIcon } from '../../Components/calculator/icons';
@@ -362,28 +363,37 @@ const Calculator = () => {
             volume: Number(r.volume) || 0,
             quantity: Number(r.quantity) || 0,
             isCustom: r.is_custom,
+            width: r.width,
+            height: r.height,
+            depth: r.depth,
           }));
 
-          // 4) Limpiar y cargar en tu inventario
-          clearAll();
-          mapped.forEach((m) => {
-            const added = addItem(m);
-            if (m.quantity > 1) {
-              updateItemQuantity(added.id, m.quantity);
-            }
-          });
-
-          // 5) Guardar en localStorage
+          // 4) Guardar DIRECTAMENTE en localStorage (sin pasar por addItem)
           localStorage.setItem('quarto_inventory', JSON.stringify(mapped));
 
-          // 6) Prellenar datos del usuario en localStorage para BookingScreen
+          // 5) Prellenar datos del usuario
           localStorage.setItem('quarto_user', JSON.stringify({
             name: quote.name,
             email: quote.email,
             phone: quote.phone,
           }));
 
-          // 7) Hidratar logística y precio
+          // 6) Guardar método logístico en localStorage
+          localStorage.setItem('quarto_logistics_method', quote.logistics_method);
+          
+          // 7) Si hay transporte, guardarlo también
+          if (quote.logistics_method === 'Recogida' && quote.Trasnport_id) {
+            const { data: transport } = await supabase
+              .from('transports')
+              .select('*')
+              .eq('id', quote.Trasnport_id)
+              .single();
+            if (transport) {
+              localStorage.setItem('quarto_transport', JSON.stringify(transport));
+            }
+          }
+
+          // 8) Hidratar estado del reducer
           dispatch({
             type: 'SELECT_LOGISTICS',
             payload: quote.logistics_method === 'Recogida' ? 'Recogida' : 'En bodega',
@@ -392,26 +402,25 @@ const Calculator = () => {
             dispatch({ type: 'SET_TRANSPORT_PRICE', payload: quote.transport_price });
           }
 
-          // 8) Navegar directo a booking (no a calculator)
+          // 9) Navegar a booking
           dispatch({ type: 'NAVIGATE_TO', payload: 'booking' });
+          
+          // 10) Forzar recarga de la página para que useInventory lea el localStorage
+          window.location.reload();
         })();
-      }, [addItem, clearAll, updateItemQuantity, dispatch]);
+    }, []); // Sin dependencias, solo se ejecuta al montar
 
     return (
-        <div className={`min-h-screen flex flex-col ${opacityClass}`}>
-            <main className="flex-grow flex flex-col">{renderScreen()}</main>
-            {state.view === 'calculator' && (
-                <footer className="py-8 text-center">
-                    <p className="text-sm text-slate-500 dark:text-slate-500 max-w-3xl mx-auto px-4">
-                        <strong>Nota importante:</strong> El cálculo del volumen es una estimación para ayudarte en tu planificación. El espacio real requerido puede variar según las dimensiones exactas de tus artículos y la eficiencia con que se empaquen y organicen.
-                    </p>
-                </footer>
+        <div className={`Calculator ${opacityClass} flex flex-col h-screen overflow-hidden`}>
+            {renderScreen()}
+            {showConfirmModal && (
+                <ConfirmModal
+                    title="¿Estás seguro de que quieres limpiar todo?"
+                    message="Esto eliminará todos los artículos de tu inventario."
+                    onConfirm={handleConfirmClear}
+                    onCancel={handleCancelClear}
+                />
             )}
-            <ConfirmModal
-                open={showConfirmModal}
-                onConfirm={handleConfirmClear}
-                onCancel={handleCancelClear}
-            />
         </div>
     );
 };
