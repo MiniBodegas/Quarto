@@ -18,6 +18,11 @@ export default function QuoteTemplate(props) {
     contactEmail, website, logoUrl, bookingUrl = '#',
   } = props;
 
+  const totalItems =
+    Array.isArray(items)
+      ? items.reduce((sum, item) => sum + Number(item?.quantity ?? 0), 0)
+      : 0;
+
   const hasItems = Array.isArray(items) && items.length > 0;
 
   const colors = {
@@ -103,6 +108,33 @@ export default function QuoteTemplate(props) {
         },
           React.createElement(Row, { style: { marginBottom: "12px" }},
             React.createElement(Column, { style: { textAlign: "left", paddingRight: "10px" }},
+              React.createElement(Text, { style: { margin: 0, fontSize: "14px", color: "#666666" }}, "Total de artículos:")
+            ),
+            React.createElement(Column, { style: { textAlign: "right", paddingLeft: "10px" }},
+              React.createElement(Text, { style: { margin: 0, fontSize: "14px", fontWeight: 600, color: "#012E58" }}, `${totalItems} uds`)
+            )
+          ),
+
+           React.createElement(Row, { style: { marginBottom: "12px" }},
+            React.createElement(Column, { style: { textAlign: "left", paddingRight: "10px" }},
+              React.createElement(Text, { style: { margin: 0, fontSize: "14px", color: "#666666" }}, "Volumen total:")
+            ),
+            React.createElement(Column, { style: { textAlign: "right", paddingLeft: "10px" }},
+              React.createElement(Text, { style: { margin: 0, fontSize: "14px", fontWeight: 600, color: "#012E58" }}, `${Number(totalVolume ?? 0).toFixed(2)} m³`)
+            )
+          ),
+
+           React.createElement(Row, { style: { marginBottom: "16px", paddingBottom: "12px", borderBottom: `1px dashed ${colors.border}` }},
+            React.createElement(Column, { style: { textAlign: "left", paddingRight: "10px" }},
+              React.createElement(Text, { style: { margin: 0, fontSize: "14px", color: "#666666" }}, "Almacenamiento (mensual):")
+            ),
+            React.createElement(Column, { style: { textAlign: "right", paddingLeft: "10px" }},
+              React.createElement(Text, { style: { margin: 0, fontSize: "14px", fontWeight: 600, color: "#012E58" }}, `$${Number(storagePrice ?? totalPrice ?? 0).toLocaleString()}`)
+            )
+          ),
+
+          React.createElement(Row, { style: { marginBottom: "12px" }},
+            React.createElement(Column, { style: { textAlign: "left", paddingRight: "10px" }},
               React.createElement(Text, { style: { margin: 0, fontSize: "14px", color: "#666666" }}, "Método logístico:")
             ),
             React.createElement(Column, { style: { textAlign: "right", paddingLeft: "10px" }},
@@ -112,30 +144,14 @@ export default function QuoteTemplate(props) {
 
           React.createElement(Row, { style: { marginBottom: "12px" }},
             React.createElement(Column, { style: { textAlign: "left", paddingRight: "10px" }},
-              React.createElement(Text, { style: { margin: 0, fontSize: "14px", color: "#666666" }}, "Volumen total:")
-            ),
-            React.createElement(Column, { style: { textAlign: "right", paddingLeft: "10px" }},
-              React.createElement(Text, { style: { margin: 0, fontSize: "14px", fontWeight: 600, color: "#012E58" }}, `${Number(totalVolume ?? 0).toFixed(2)} m³`)
-            )
-          ),
-
-          React.createElement(Row, { style: { marginBottom: "12px" }},
-            React.createElement(Column, { style: { textAlign: "left", paddingRight: "10px" }},
-              React.createElement(Text, { style: { margin: 0, fontSize: "14px", color: "#666666" }}, "Precio logístico:")
+              React.createElement(Text, { style: { margin: 0, fontSize: "14px", color: "#666666" }}, "Valor del transporte:")
             ),
             React.createElement(Column, { style: { textAlign: "right", paddingLeft: "10px" }},
               React.createElement(Text, { style: { margin: 0, fontSize: "14px", fontWeight: 600, color: "#012E58" }}, `$${Number(transportPrice ?? 0).toLocaleString()}`)
             )
           ),
 
-          React.createElement(Row, { style: { marginBottom: "16px", paddingBottom: "12px", borderBottom: `1px dashed ${colors.border}` }},
-            React.createElement(Column, { style: { textAlign: "left", paddingRight: "10px" }},
-              React.createElement(Text, { style: { margin: 0, fontSize: "14px", color: "#666666" }}, "Almacenamiento (mensual):")
-            ),
-            React.createElement(Column, { style: { textAlign: "right", paddingLeft: "10px" }},
-              React.createElement(Text, { style: { margin: 0, fontSize: "14px", fontWeight: 600, color: "#012E58" }}, `$${Number(storagePrice ?? totalPrice ?? 0).toLocaleString()}`)
-            )
-          ),
+         
 
           React.createElement(Row, null,
             React.createElement(Column, { style: { textAlign: "left", paddingRight: "10px" }},
