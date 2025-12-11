@@ -97,67 +97,77 @@ export default function QuoteTemplate(props) {
         // Resumen
         React.createElement(Section, {
           style: {
-            padding: "20px",
-            backgroundColor: "#F8F9FA",
+            padding: "16px",
+            backgroundColor: "#ffffff",
             border: `1px solid ${colors.border}`,
-            borderRadius: "8px",
-            margin: "20px",
-            width: "calc(100% - 40px)",
+            borderRadius: "12px",
+            margin: "16px 0",
+            width: "100%",
           },
-          bgcolor: "#F8F9FA"
+          bgcolor: "#ffffff"
         },
           React.createElement(Row, { style: { marginBottom: "12px" }},
-            React.createElement(Column, { style: { textAlign: "left", paddingRight: "10px" }},
+            React.createElement(Column, {
+              style: { textAlign: "left", paddingRight: "8px", wordBreak: "break-word", maxWidth: "60%" }},
               React.createElement(Text, { style: { margin: 0, fontSize: "14px", color: "#666666" }}, "Total de artículos:")
             ),
-            React.createElement(Column, { style: { textAlign: "right", paddingLeft: "10px" }},
+            React.createElement(Column, {
+              style: { textAlign: "right", paddingLeft: "8px", wordBreak: "break-word", maxWidth: "40%" }},
               React.createElement(Text, { style: { margin: 0, fontSize: "14px", fontWeight: 600, color: "#012E58" }}, `${totalItems} uds`)
             )
           ),
 
-           React.createElement(Row, { style: { marginBottom: "12px" }},
-            React.createElement(Column, { style: { textAlign: "left", paddingRight: "10px" }},
+          React.createElement(Row, { style: { marginBottom: "12px" }},
+            React.createElement(Column, {
+              style: { textAlign: "left", paddingRight: "8px", wordBreak: "break-word", maxWidth: "60%" }},
               React.createElement(Text, { style: { margin: 0, fontSize: "14px", color: "#666666" }}, "Volumen total:")
             ),
-            React.createElement(Column, { style: { textAlign: "right", paddingLeft: "10px" }},
+            React.createElement(Column, {
+              style: { textAlign: "right", paddingLeft: "8px", wordBreak: "break-word", maxWidth: "40%" }},
               React.createElement(Text, { style: { margin: 0, fontSize: "14px", fontWeight: 600, color: "#012E58" }}, `${Number(totalVolume ?? 0).toFixed(2)} m³`)
             )
           ),
 
-           React.createElement(Row, { style: { marginBottom: "16px", paddingBottom: "12px", borderBottom: `1px dashed ${colors.border}` }},
-            React.createElement(Column, { style: { textAlign: "left", paddingRight: "10px" }},
+          React.createElement(Row, { style: { marginBottom: "12px" }},
+            React.createElement(Column, {
+              style: { textAlign: "left", paddingRight: "8px", wordBreak: "break-word", maxWidth: "60%" }},
               React.createElement(Text, { style: { margin: 0, fontSize: "14px", color: "#666666" }}, "Almacenamiento (mensual):")
             ),
-            React.createElement(Column, { style: { textAlign: "right", paddingLeft: "10px" }},
+            React.createElement(Column, {
+              style: { textAlign: "right", paddingLeft: "8px", wordBreak: "break-word", maxWidth: "40%" }},
               React.createElement(Text, { style: { margin: 0, fontSize: "14px", fontWeight: 600, color: "#012E58" }}, `$${Number(storagePrice ?? totalPrice ?? 0).toLocaleString()}`)
             )
           ),
 
           React.createElement(Row, { style: { marginBottom: "12px" }},
-            React.createElement(Column, { style: { textAlign: "left", paddingRight: "10px" }},
+            React.createElement(Column, {
+              style: { textAlign: "left", paddingRight: "8px", wordBreak: "break-word", maxWidth: "60%" }},
               React.createElement(Text, { style: { margin: 0, fontSize: "14px", color: "#666666" }}, "Método logístico:")
             ),
-            React.createElement(Column, { style: { textAlign: "right", paddingLeft: "10px" }},
+            React.createElement(Column, {
+              style: { textAlign: "right", paddingLeft: "8px", wordBreak: "break-word", maxWidth: "40%" }},
               React.createElement(Text, { style: { margin: 0, fontSize: "14px", fontWeight: 600, color: "#012E58" }}, logisticsMethod)
             )
           ),
 
           React.createElement(Row, { style: { marginBottom: "12px" }},
-            React.createElement(Column, { style: { textAlign: "left", paddingRight: "10px" }},
+            React.createElement(Column, {
+              style: { textAlign: "left", paddingRight: "8px", wordBreak: "break-word", maxWidth: "60%" }},
               React.createElement(Text, { style: { margin: 0, fontSize: "14px", color: "#666666" }}, "Valor del transporte:")
             ),
-            React.createElement(Column, { style: { textAlign: "right", paddingLeft: "10px" }},
+            React.createElement(Column, {
+              style: { textAlign: "right", paddingLeft: "8px", wordBreak: "break-word", maxWidth: "40%" }},
               React.createElement(Text, { style: { margin: 0, fontSize: "14px", fontWeight: 600, color: "#012E58" }}, `$${Number(transportPrice ?? 0).toLocaleString()}`)
             )
           ),
 
-         
-
           React.createElement(Row, null,
-            React.createElement(Column, { style: { textAlign: "left", paddingRight: "10px" }},
+            React.createElement(Column, {
+              style: { textAlign: "left", paddingRight: "8px", wordBreak: "break-word", maxWidth: "60%" }},
               React.createElement(Text, { style: { margin: 0, fontSize: "16px", fontWeight: 900, color: "#012E58" }}, "Total cotización:")
             ),
-            React.createElement(Column, { style: { textAlign: "right", paddingLeft: "10px" }},
+            React.createElement(Column, {
+              style: { textAlign: "right", paddingLeft: "8px", wordBreak: "break-word", maxWidth: "40%" }},
               React.createElement(Text, { style: { margin: 0, fontSize: "18px", fontWeight: 900, color: "#0B5FFF" }}, `$${Number((storagePrice ?? 0) + (transportPrice ?? 0)).toLocaleString()}`)
             )
           )
