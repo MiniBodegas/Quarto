@@ -363,7 +363,7 @@ const BookingScreen = ({
   const today = new Date().toISOString().split('T')[0];
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col ">
       <main className="container mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 flex-grow pt-8 pb-12">
         <ScreenHeader
           title="Agenda tu servicio"

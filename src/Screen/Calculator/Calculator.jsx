@@ -435,7 +435,7 @@ const Calculator = () => {
     }, [dispatch, addItem, updateItemQuantity, clearAll]);
 
     return (
-        <div className={`Calculator ${opacityClass} flex flex-col h-screen overflow-hidden`}>
+        <div className={`Calculator ${opacityClass} flex flex-col min-h-screen overflow-y-auto`}>
             {renderScreen()}
             {showConfirmModal && (
                 <ConfirmModal

@@ -122,7 +122,7 @@ const AddItemForm = ({ onAddItem, categories }) => {
       <div className="space-y-3 rounded-xl border border-border dark:border-border-dark bg-white dark:bg-transparent px-4 py-3">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-[#012E58]">
+            <p className="text-xs font-semibold uppercase flex justify-start tracking-wide text-[#012E58]">
               Dimensiones
             </p>
             <p className="text-[11px] text-[#012E58]/80">

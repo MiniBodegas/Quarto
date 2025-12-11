@@ -64,7 +64,7 @@ const ResultsScreen = ({ totalVolume, totalItems, onBack, onContinue }) => {
   );
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col">
       <main className="container mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 flex-grow pt-8 pb-12">
         <ScreenHeader
           title="¿Cómo prefieres guardar tus cosas?"
@@ -76,7 +76,7 @@ const ResultsScreen = ({ totalVolume, totalItems, onBack, onContinue }) => {
           }
         />
 
-        <div className="mt-4 bg-white/95 backdrop-blur rounded-3xl shadow-xl border border-slate-200 p-6 sm:p-8 space-y-6">
+        <div className="mt-4 bg-white rounded-3xl shadow-lg border border-slate-200 p-6 sm:p-8 space-y-6">
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {logisticsOptions.map((option) => (

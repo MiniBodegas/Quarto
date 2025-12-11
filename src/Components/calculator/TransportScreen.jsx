@@ -61,7 +61,7 @@ const TransportScreen = ({ totalVolume, onContinue, onBack }) => {
     }).format(value || 0);
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col ">
       <main className="container mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 flex-grow pt-8 pb-12">
         <ScreenHeader
           title="Información de recogida"
@@ -165,7 +165,7 @@ const TransportScreen = ({ totalVolume, onContinue, onBack }) => {
             <button
               type="button"
               onClick={() => setHasNoNumber((prev) => !prev)}
-              className="inline-flex items-center gap-2 text-sm text-[#012E58] font-semibold"
+              className="inline-flex items-center gap-2 text-sm text-[#012E58] font-semibold bg-transparent border-0 p-0 hover:opacity-80 transition-opacity"
             >
               <span
                 className={`material-symbols-outlined text-2xl transition-colors ${
@@ -188,19 +188,21 @@ const TransportScreen = ({ totalVolume, onContinue, onBack }) => {
             className="!rounded-lg !px-3 !py-2.5 !text-[#012E58]"
           />
 
-          <div className="mt-2 rounded-2xl border border-dashed border-slate-200 px-4 py-3 flex items-center justify-between bg-slate-50/60">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 flex justify-start">
-                Estimación del transporte
-              </p>
-              <p className="text-[11px] text-slate-500">
-                Según el volumen aproximado de tus pertenencias.
+          {isFormValid && (
+            <div className="mt-2 rounded-2xl border border-dashed border-slate-200 px-4 py-3 flex items-center justify-between bg-slate-50/60">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-600 flex justify-start">
+                  Estimación del transporte
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  Según el volumen aproximado de tus pertenencias.
+                </p>
+              </div>
+              <p className="text-2xl font-extrabold text-[#012E58]">
+                {formatCurrency(transportPrice)}
               </p>
             </div>
-            <p className="text-2xl font-extrabold text-[#012E58]">
-              {formatCurrency(transportPrice)}
-            </p>
-          </div>
+          )}
 
           <div className="pt-2 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
              <Button

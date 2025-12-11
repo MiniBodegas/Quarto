@@ -20,6 +20,8 @@ const QuoteRequestScreen = ({
   const [emailError, setEmailError] = useState('');
   const [phoneError, setPhoneError] = useState('');
   const [touched, setTouched] = useState({ email: false, phone: false });
+  const [isLoading, setIsLoading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const loadFromLocalStorage = () => {
     try {
@@ -27,7 +29,6 @@ const QuoteRequestScreen = ({
       const logisticsMethodLS = localStorage.getItem('quarto_logistics_method') || null;
       const transport = JSON.parse(localStorage.getItem('quarto_transport') || 'null');
       return { inventory, logisticsMethodLS, transport };
-      onSuccess(name)
     } catch (error) {
       console.error('Error leyendo datos desde localStorage:', error);
       return { inventory: [], logisticsMethodLS: null, transport: null };
@@ -91,6 +92,8 @@ const QuoteRequestScreen = ({
       return;
     }
 
+    setIsLoading(true);
+
     const { inventory, logisticsMethodLS, transport } = loadFromLocalStorage();
     const finalLogisticsMethod = logisticsMethodLS || logisticsMethod;
     const finalTotalItems = totalItems ?? inventory.reduce((sum, item) => sum + (item.quantity ?? 1), 0);
@@ -116,6 +119,7 @@ const QuoteRequestScreen = ({
           .select()
           .single();
         if (userError) {
+          setIsLoading(false);
           alert('No pudimos crear el usuario: ' + userError.message);
           return;
         }
@@ -145,6 +149,7 @@ const QuoteRequestScreen = ({
           .single();
 
         if (transportError) {
+          setIsLoading(false);
           alert('Error al guardar el transporte: ' + transportError.message);
           return;
         }
@@ -171,6 +176,7 @@ const QuoteRequestScreen = ({
         .single();
 
       if (quoteErr) {
+        setIsLoading(false);
         alert('Error al guardar la cotización: ' + quoteErr.message);
         return;
       }
@@ -180,38 +186,44 @@ const QuoteRequestScreen = ({
       if (selectedItems?.length) {
         const payload = selectedItems.map((item) => ({
           quote_id: quoteId,
-          item_id: null, // ajusta si tienes UUID real
+          item_id: null,
           name: item.name,
           quantity: Number(item.quantity ?? 1),
           volume: Number(item.volume ?? 0),
           is_custom: !!item.isCustom,
-          short_code: generateShortCode(), // <-- requerido
+          short_code: generateShortCode(),
         }));
         const { error: invErr } = await supabase.from('inventory').insert(payload);
         if (invErr) {
+          setIsLoading(false);
           alert('Error al guardar los items: ' + invErr.message);
           return;
         }
       }
 
-      // 5) Enviar correo con botón de reserva
-      try {
-        await fetch(`/api/send-quote/${quoteId}`, { method: 'POST' });
-      } catch (fetchError) {
-        console.error('Error al enviar correo:', fetchError);
-        alert('Cotización guardada, pero no se pudo enviar el correo.');
-      }
+      // 5) Mostrar modal de éxito
+      setShowSuccessModal(true);
 
-      // 6) Limpia storage y confirma
-      localStorage.removeItem('quarto_inventory');
-      localStorage.removeItem('quarto_inventory_photos');
-      localStorage.removeItem('quarto_logistics_method');
-      localStorage.removeItem('quarto_transport');
-      localStorage.removeItem('quarto_user');
-      localStorage.removeItem('quarto_booking_contact');
+      // 6) Enviar correo con botón de reserva (en segundo plano)
+      fetch(`/api/send-quote/${quoteId}`, { method: 'POST' })
+        .catch((fetchError) => {
+          console.error('Error al enviar correo:', fetchError);
+        });
 
-      alert('¡Cotización guardada exitosamente! Pronto recibirás tu correo.');
+      // 7) Limpiar storage y redirigir después de 3 segundos
+      setTimeout(() => {
+        localStorage.removeItem('quarto_inventory');
+        localStorage.removeItem('quarto_inventory_photos');
+        localStorage.removeItem('quarto_logistics_method');
+        localStorage.removeItem('quarto_transport');
+        localStorage.removeItem('quarto_user');
+        localStorage.removeItem('quarto_booking_contact');
+
+        setIsLoading(false);
+        window.location.href = '/';
+      }, 3000);
     } catch (error) {
+      setIsLoading(false);
       console.error('Error:', error);
       alert('Ocurrió un error. Intenta de nuevo más tarde.');
     }
@@ -220,14 +232,14 @@ const QuoteRequestScreen = ({
   const isFormValid = name.trim() !== '' && email.trim() !== '' && phone.trim() !== '' && !emailError && !phoneError;
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50">
+    <div className="min-h-screen flex flex-col ">
       <main className="container mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 flex-grow pt-8 pb-12">
         <ScreenHeader
           title="Solicita tu cotización"
           subtitle="Déjanos tus datos y te enviaremos una cotización personalizada."
         />
 
-        <div className="mt-4 bg-white/95 backdrop-blur rounded-3xl shadow-xl border border-slate-200 p-6 sm:p-8">
+        <div className="mt-4 bg-white rounded-3xl shadow-lg border border-slate-200 p-6 sm:p-8">
           <form onSubmit={handleSubmit} className="space-y-7 w-full">
             <div className="space-y-6">
               <Input
@@ -239,6 +251,7 @@ const QuoteRequestScreen = ({
                 placeholder="Ej: Ana María"
                 required
                 autoComplete="name"
+                disabled={isLoading}
               />
               <Input
                 id="email"
@@ -251,6 +264,7 @@ const QuoteRequestScreen = ({
                 required
                 autoComplete="email"
                 error={touched.email ? emailError : ''}
+                disabled={isLoading}
               />
               <Input
                 id="phone"
@@ -265,6 +279,7 @@ const QuoteRequestScreen = ({
                 autoComplete="tel"
                 maxLength={10}
                 error={touched.phone ? phoneError : ''}
+                disabled={isLoading}
               />
             </div>
 
@@ -275,20 +290,60 @@ const QuoteRequestScreen = ({
                 onClick={onBack}
                 icon={<ArrowLeftIcon className="w-5 h-5" />}
                 className="sm:w-40 !py-2.5"
+                disabled={isLoading}
               >
                 Volver
               </Button>
               <Button
                 type="submit"
-                disabled={!isFormValid}
+                disabled={!isFormValid || isLoading}
                 className="flex-1 sm:flex-none sm:w-48 !py-2.5 font-bold shadow-lg hover:shadow-xl"
               >
-                Solicitar Cotización
+                {isLoading ? 'Guardando...' : 'Solicitar Cotización'}
               </Button>
             </div>
           </form>
         </div>
       </main>
+
+      {/* Modal de éxito */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full text-center animate-in fade-in zoom-in duration-300">
+            <div className="mb-4 flex justify-center">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              </div>
+            </div>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">¡Cotización Guardada!</h2>
+            <p className="text-slate-600 mb-6">
+              Hemos recibido tu solicitud. En breve recibirás un correo a <strong>{email}</strong> con tu cotización personalizada y un botón para agendar tu servicio.
+            </p>
+            <div className="flex items-center justify-center gap-2 text-sm text-slate-500 mb-4">
+              <div className="w-2 h-2 bg-slate-300 rounded-full animate-pulse"></div>
+              <span>Redirigiendo en unos segundos...</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pantalla de carga */}
+      {isLoading && !showSuccessModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-40">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-md w-full text-center">
+            <div className="mb-6 flex justify-center">
+              <div className="relative w-16 h-16">
+                <div className="absolute inset-0 border-4 border-slate-200 rounded-full"></div>
+                <div className="absolute inset-0 border-4 border-transparent border-t-[#0B5FFF] rounded-full animate-spin"></div>
+              </div>
+            </div>
+            <h2 className="text-xl font-bold text-slate-900 mb-2">Procesando tu cotización...</h2>
+            <p className="text-slate-600 text-sm">Por favor espera mientras guardamos tus datos.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

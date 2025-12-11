@@ -16,7 +16,7 @@ const FinalSummaryScreen = ({ totalVolume, totalItems, logisticsMethod, transpor
     const storagePrice = calculateStoragePrice(totalVolume);
 
     return (
-        <div className="min-h-screen flex flex-col bg-slate-50">
+        <div className="min-h-screen flex flex-col ">
             <main className="container mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 flex-grow flex flex-col pt-8 pb-12">
                 <ScreenHeader 
                     title="Resumen final"
