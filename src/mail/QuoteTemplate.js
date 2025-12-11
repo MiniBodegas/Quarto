@@ -71,9 +71,9 @@ export default function QuoteTemplate(props) {
           style: { ...sectionPadded, backgroundColor: colors.headerBg, borderBottom: `1px solid ${colors.border}` },
           bgcolor: "#ffffff"
         },
-          React.createElement(Row, null,
-            React.createElement(Column, { style: { width: "64px", verticalAlign: "top" }},
-              logoUrl && React.createElement('img', { src: logoUrl, alt: "Quarto", style: { height: "40px", borderRadius: "6px" }})
+            React.createElement(Row, null,
+            React.createElement(Column, { style: { width: "64px", verticalAlign: "middle", paddingRight: "12px", textAlign: "center" }},
+              logoUrl && React.createElement('img', { src: logoUrl, alt: "Quarto", style: { height: "40px", borderRadius: "6px", display: "block", margin: "0 auto" }})
             ),
             React.createElement(Column, { style: { verticalAlign: "top" }},
               React.createElement(Heading, { style: { fontSize: "20px", margin: "0 0 6px 0", color: colors.dark }}, `Cotización para ${name}`),
