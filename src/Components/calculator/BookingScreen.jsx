@@ -1,31 +1,21 @@
-import { useState, useEffect } from 'react';
-import { ArrowLeftIcon } from './icons';
-import { ScreenHeader, Button, Input, Select } from '../index';
-import { supabase } from '../../supabase'; // 👈 IMPORTANTE
+import { useState, useEffect } from "react";
+import { ArrowLeftIcon } from "./icons";
+import { ScreenHeader, Button, Input, Select } from "../index";
+import { supabase } from "../../supabase";
 
 const DOCUMENT_TYPES = [
-  { value: 'CC', label: 'Cédula de Ciudadanía' },
-  { value: 'CE', label: 'Cédula de Extranjería' },
-  { value: 'PP', label: 'Pasaporte' },
+  { value: "CC", label: "Cédula de Ciudadanía" },
+  { value: "CE", label: "Cédula de Extranjería" },
+  { value: "PP", label: "Pasaporte" },
 ];
 
 const TIME_SLOTS = [
-  { value: 'AM', label: 'Mañana (8am - 12pm)' },
-  { value: 'PM', label: 'Tarde (1pm - 5pm)' },
+  { value: "AM", label: "Mañana (8am - 12pm)" },
+  { value: "PM", label: "Tarde (1pm - 5pm)" },
 ];
 
 function generateShortCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
-}
-
-function base64ToBlob(base64) {
-  const arr = base64.split(',');
-  const mime = arr[0].match(/:(.*?);/)[1];
-  const bstr = atob(arr[1]);
-  let n = bstr.length;
-  const u8arr = new Uint8Array(n);
-  while (n--) u8arr[n] = bstr.charCodeAt(n);
-  return new Blob([u8arr], { type: mime });
 }
 
 const BookingScreen = ({
@@ -33,334 +23,308 @@ const BookingScreen = ({
   totalItems,
   logisticsMethod,
   transportPrice,
+  totalPriceCOP, // ✅ precio mensual por volumen (viene de tu FinalSummary)
   onBack,
-  onConfirm,
+  onGoToPayment, // ✅ callback para ir a pago (Calculator: set wompi + navigate payment)
 }) => {
-  const [bookingType, setBookingType] = useState('person');
-  const [companyName, setCompanyName] = useState('');
-  const [companyNit, setCompanyNit] = useState('');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
+  const [bookingType, setBookingType] = useState("person");
+  const [companyName, setCompanyName] = useState("");
+  const [companyNit, setCompanyNit] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [documentType, setDocumentType] = useState(DOCUMENT_TYPES[0].value);
-  const [documentNumber, setDocumentNumber] = useState('');
-  const [date, setDate] = useState('');
+  const [documentNumber, setDocumentNumber] = useState("");
+  const [date, setDate] = useState("");
   const [timeSlot, setTimeSlot] = useState(TIME_SLOTS[0].value);
 
-  const [emailError, setEmailError] = useState('');
-  const [phoneError, setPhoneError] = useState('');
+  const [emailError, setEmailError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
   const [touched, setTouched] = useState({ email: false, phone: false });
 
   useEffect(() => {
-    // Prellena datos si vienen del email
-    const userData = JSON.parse(localStorage.getItem('quarto_user') || '{}');
+    const userData = JSON.parse(localStorage.getItem("quarto_user") || "{}");
     if (userData.name) setName(userData.name);
     if (userData.email) setEmail(userData.email);
     if (userData.phone) setPhone(userData.phone);
   }, []);
 
-  // CALCULA totales desde localStorage (para ambos flujos)
-  useEffect(() => {
-    const inventory = JSON.parse(localStorage.getItem('quarto_inventory') || '[]');
-    if (inventory.length > 0 && totalItems === 0) {
-      // Si viene de quoteId, el hook ya cargó los items
-      // Si viene de flujo directo, recalcula desde localStorage
-      const calculatedItems = inventory.reduce((sum, item) => sum + (item.quantity ?? 1), 0);
-      const calculatedVolume = inventory.reduce((sum, item) => sum + (item.volume ?? 0) * (item.quantity ?? 1), 0);
-      console.log('Items calculados:', calculatedItems, 'Volumen:', calculatedVolume);
-    }
-  }, [totalItems]);
-
   const loadFromLocalStorage = () => {
     try {
-      const inventory = JSON.parse(localStorage.getItem('quarto_inventory') || '[]');
-      const logisticsMethodLS = localStorage.getItem('quarto_logistics_method') || null;
-      const transport = JSON.parse(localStorage.getItem('quarto_transport') || 'null');
+      const inventory = JSON.parse(localStorage.getItem("quarto_inventory") || "[]");
+      const logisticsMethodLS = localStorage.getItem("quarto_logistics_method") || null;
+      const transport = JSON.parse(localStorage.getItem("quarto_transport") || "null");
       return { inventory, logisticsMethodLS, transport };
     } catch (error) {
-      console.error('Error leyendo datos desde localStorage:', error);
+      console.error("[Booking] Error leyendo localStorage:", error);
       return { inventory: [], logisticsMethodLS: null, transport: null };
     }
   };
 
-  const handleBlur = (field) => {
-    setTouched((prev) => ({ ...prev, [field]: true }));
-    if (field === 'email') validateEmail(email);
-    if (field === 'phone') validatePhone(phone);
-  };
-
   const validateEmail = (value) => {
-    if (!value) {
-      setEmailError('El correo es obligatorio.');
-      return false;
-    }
-    if (!/\S+@\S+\.\S+/.test(value)) {
-      setEmailError('Por favor, introduce un formato de correo válido.');
-      return false;
-    }
-    setEmailError('');
+    if (!value) return setEmailError("El correo es obligatorio."), false;
+    if (!/\S+@\S+\.\S+/.test(value)) return setEmailError("Por favor, introduce un formato de correo válido."), false;
+    setEmailError("");
     return true;
   };
 
   const validatePhone = (value) => {
-    if (!value) {
-      setPhoneError('El teléfono es obligatorio.');
-      return false;
-    }
-    if (value.length !== 10) {
-      setPhoneError('El teléfono debe tener 10 dígitos.');
-      return false;
-    }
-    setPhoneError('');
+    if (!value) return setPhoneError("El teléfono es obligatorio."), false;
+    if (value.length !== 10) return setPhoneError("El teléfono debe tener 10 dígitos."), false;
+    setPhoneError("");
     return true;
   };
 
+  const handleBlur = (field) => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    if (field === "email") validateEmail(email);
+    if (field === "phone") validatePhone(phone);
+  };
+
   const handleEmailChange = (e) => {
-    const value = e.target.value;
-    setEmail(value);
-    if (touched.email) validateEmail(value);
+    const v = e.target.value;
+    setEmail(v);
+    if (touched.email) validateEmail(v);
   };
 
   const handlePhoneChange = (e) => {
-    const value = e.target.value.replace(/\D/g, '');
-    if (value.length <= 10) {
-      setPhone(value);
-      if (touched.phone) validatePhone(value);
+    const v = e.target.value.replace(/\D/g, "");
+    if (v.length <= 10) {
+      setPhone(v);
+      if (touched.phone) validatePhone(v);
     }
   };
 
-  const handleDocumentNumberChange = (e) => {
-    const value = e.target.value.replace(/\D/g, '');
-    setDocumentNumber(value);
-  };
+  const handleDocumentNumberChange = (e) => setDocumentNumber(e.target.value.replace(/\D/g, ""));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const isNameValid = name.trim() !== '';
+    // ✅ Validaciones
+    const isNameValid = name.trim() !== "";
     const isEmailValid = validateEmail(email);
     const isPhoneValid = validatePhone(phone);
-    const isDocumentValid = documentNumber.trim() !== '';
-    const isDateValid = date.trim() !== '';
-    const isTimeSlotValid = timeSlot.trim() !== '';
-    const isCompanyDataValid =
-      bookingType === 'person' || (companyName.trim() !== '' && companyNit.trim() !== '');
+    const isDocumentValid = documentNumber.trim() !== "";
+    const isDateValid = date.trim() !== "";
+    const isTimeSlotValid = timeSlot.trim() !== "";
+    const isCompanyDataValid = bookingType === "person" || (companyName.trim() !== "" && companyNit.trim() !== "");
 
     setTouched({ email: true, phone: true });
 
-    if (
-      !isNameValid ||
-      !isEmailValid ||
-      !isPhoneValid ||
-      !isDocumentValid ||
-      !isDateValid ||
-      !isTimeSlotValid ||
-      !isCompanyDataValid
-    ) {
-      if (!isNameValid) alert('Por favor, ingresa tu nombre completo.');
-      if (!isDocumentValid) alert('Por favor, ingresa tu número de documento.');
-      if (!isDateValid) alert('Por favor, selecciona una fecha.');
-      if (!isTimeSlotValid) alert('Por favor, selecciona una franja horaria.');
-      if (bookingType === 'company') {
-        if (companyName.trim() === '') alert('Por favor, ingresa el nombre de la empresa.');
-        else if (companyNit.trim() === '') alert('Por favor, ingresa el NIT de la empresa.');
+    if (!isNameValid || !isEmailValid || !isPhoneValid || !isDocumentValid || !isDateValid || !isTimeSlotValid || !isCompanyDataValid) {
+      if (!isNameValid) alert("Por favor, ingresa tu nombre completo.");
+      if (!isDocumentValid) alert("Por favor, ingresa tu número de documento.");
+      if (!isDateValid) alert("Por favor, selecciona una fecha.");
+      if (!isTimeSlotValid) alert("Por favor, selecciona una franja horaria.");
+      if (bookingType === "company") {
+        if (companyName.trim() === "") alert("Por favor, ingresa el nombre de la empresa.");
+        else if (companyNit.trim() === "") alert("Por favor, ingresa el NIT de la empresa.");
       }
       return;
     }
 
     const { inventory, logisticsMethodLS, transport } = loadFromLocalStorage();
-
     const finalLogisticsMethod = logisticsMethodLS || logisticsMethod;
-    // IMPORTANTE: Usa inventory.length como fallback si totalItems es 0
-    const finalTotalItems = 
-      totalItems && totalItems > 0 
-        ? totalItems 
-        : inventory.reduce((sum, item) => sum + (item.quantity ?? 1), 0);
-    
-    const finalTotalVolume = 
-      totalVolume && totalVolume > 0
-        ? totalVolume
-        : inventory.reduce((sum, item) => sum + (item.volume ?? 0) * (item.quantity ?? 1), 0);
 
-    const bookingPayload = {
-      booking_type: bookingType,
-      company_name: bookingType === 'company' ? companyName : null,
-      company_nit: bookingType === 'company' ? companyNit : null,
-      name,
-      email,
-      phone,
-      document_type: documentType,
-      document_number: documentNumber,
-      date,
-      time_slot: timeSlot,
-      total_items: finalTotalItems,
-      total_volume: finalTotalVolume,
-      logistics_method: finalLogisticsMethod,
-      transport_price:
-        finalLogisticsMethod === 'En bodega' 
-          ? 0 
-          : transport?.transport_price ?? transportPrice ?? 0,
-    };
+    const finalTotalItems =
+      totalItems && totalItems > 0 ? totalItems : inventory.reduce((sum, item) => sum + (item.quantity ?? 1), 0);
 
-    console.log('Guardando reserva:', bookingPayload);
+    const finalTotalVolume =
+      totalVolume && totalVolume > 0 ? totalVolume : inventory.reduce((sum, item) => sum + (item.volume ?? 0) * (item.quantity ?? 1), 0);
+
+    const transportCOP =
+      finalLogisticsMethod === "En bodega" ? 0 : (transport?.transport_price ?? transportPrice ?? 0);
+
+    // ✅ Tu precio mensual por volumen viene de afuera (FinalSummary)
+    const baseMonthlyCOP = Number(totalPriceCOP ?? 0);
+
+    // ✅ Define qué cobras hoy:
+    // Opción A (recomendada para tu UI): primer pago = mensualidad + transporte (si aplica)
+    const totalToPayCOP = baseMonthlyCOP + transportCOP;
+
+    console.group("[Booking] Payload + precios");
+    console.log("baseMonthlyCOP:", baseMonthlyCOP);
+    console.log("transportCOP:", transportCOP);
+    console.log("totalToPayCOP:", totalToPayCOP);
+    console.log("finalTotalItems:", finalTotalItems);
+    console.log("finalTotalVolume:", finalTotalVolume);
+    console.groupEnd();
 
     try {
-      // 1) Upsert usuario por email (evita error 409)
+      // 1) Upsert usuario por email
       let userId = null;
       const { data: existingUser } = await supabase
-        .from('users')
-        .select('id')
-        .eq('email', email)
+        .from("users")
+        .select("id")
+        .eq("email", email)
         .maybeSingle();
 
       if (existingUser) {
         userId = existingUser.id;
-        // Actualiza los datos si ya existe
-        await supabase.from('users').update({ name, phone }).eq('id', userId);
+        await supabase.from("users").update({ name, phone }).eq("id", userId);
       } else {
         const { data: newUser, error: userError } = await supabase
-          .from('users')
+          .from("users")
           .insert([{ name, email, phone }])
           .select()
           .single();
+
         if (userError) {
-          console.error('Error usuario:', userError);
-          alert('No pudimos crear el usuario');
+          console.error("[Booking] Error creando usuario:", userError);
+          alert("No pudimos crear el usuario");
           return;
         }
         userId = newUser.id;
       }
 
-      // 2) Inserta la reserva con TODOS los datos del payload
+      // 2) Inserta booking
+      const bookingPayload = {
+        user_id: userId,
+        booking_type: bookingType,
+        company_name: bookingType === "company" ? companyName : null,
+        company_nit: bookingType === "company" ? companyNit : null,
+        name,
+        email,
+        phone,
+        document_type: documentType,
+        document_number: documentNumber,
+        date,
+        time_slot: timeSlot,
+        total_volume: finalTotalVolume,
+        total_items: finalTotalItems,
+        logistics_method: finalLogisticsMethod,
+        transport_price: transportCOP,
+      };
+
       const { data: booking, error: bookingError } = await supabase
-        .from('bookings')
-        .insert([{
-          user_id: userId,
-          booking_type: bookingPayload.booking_type,
-          company_name: bookingPayload.company_name,
-          company_nit: bookingPayload.company_nit,
-          name: bookingPayload.name,
-          email: bookingPayload.email,
-          phone: bookingPayload.phone,
-          document_type: bookingPayload.document_type,
-          document_number: bookingPayload.document_number,
-          date: bookingPayload.date,
-          time_slot: bookingPayload.time_slot,
-          total_volume: bookingPayload.total_volume,
-          total_items: bookingPayload.total_items,
-          logistics_method: bookingPayload.logistics_method,
-          transport_price: bookingPayload.transport_price,
-        }])
+        .from("bookings")
+        .insert([bookingPayload])
         .select()
         .single();
-      
+
       if (bookingError) {
-        console.error('Error en booking:', bookingError);
-        alert('Error al guardar la reserva: ' + bookingError.message);
+        console.error("[Booking] Error guardando booking:", bookingError);
+        alert("Error al guardar la reserva: " + bookingError.message);
         return;
       }
+
       const bookingId = booking.id;
 
-      // Después de crear la reserva, busca transportId si existe
-      let transportId = null;
+      // 3) Si hay transport asociado, linkear booking_id
       if (transport?.id) {
-        transportId = transport.id;
-      }
+        const { error: transportUpdateError } = await supabase
+          .from("transports")
+          .update({ booking_id: bookingId })
+          .eq("id", transport.id);
 
-      if (transportId) {
-        await supabase.from('transports').update({ booking_id: bookingId }).eq('id', transportId);
-      }
-
-      // IMPORTANTE: Si esta reserva viene de una cotización, actualiza los items
-      // existentes en inventory que tienen quote_id pero sin booking_id
-      const quoteId = new URLSearchParams(window.location.search).get('quoteId');
-      if (quoteId) {
-        const { error: updateInventoryError } = await supabase
-          .from('inventory')
-          .update({ booking_id: bookingId, quote_id: null })
-          .eq('quote_id', quoteId)
-          .is('booking_id', null);  // Solo actualiza los que NO tienen booking_id
-        
-        if (updateInventoryError) {
-          console.error('Error actualizando inventory de cotización:', updateInventoryError);
+        if (transportUpdateError) {
+          console.warn("[Booking] No se pudo linkear transport:", transportUpdateError);
         }
       }
 
-     // Solo inserta items nuevos si NO vienen de una cotización
-     if (!quoteId) {
-        const inv = JSON.parse(localStorage.getItem('quarto_inventory') || '[]');
+      // 4) Inventory (si viene de quoteId: actualiza; si no: inserta)
+      const quoteId = new URLSearchParams(window.location.search).get("quoteId");
+
+      if (quoteId) {
+        const { error: updateInventoryError } = await supabase
+          .from("inventory")
+          .update({ booking_id: bookingId, quote_id: null })
+          .eq("quote_id", quoteId)
+          .is("booking_id", null);
+
+        if (updateInventoryError) console.warn("[Booking] updateInventoryError:", updateInventoryError);
+      } else {
+        const inv = JSON.parse(localStorage.getItem("quarto_inventory") || "[]");
+
         for (const item of inv) {
           let customItemId = null;
 
           if (item.isCustom) {
             const { data: customData, error: customError } = await supabase
-              .from('custom_items')
-              .insert([
-                {
-                  name: item.name,
-                  width: item.width,
-                  height: item.height,
-                  depth: item.depth,
-                  volume: item.volume,
-                },
-              ])
+              .from("custom_items")
+              .insert([{
+                name: item.name,
+                width: item.width,
+                height: item.height,
+                depth: item.depth,
+                volume: item.volume,
+              }])
               .select()
               .single();
 
             if (customError) {
-              console.error('Error al guardar custom item:', customError);
+              console.warn("[Booking] customError:", customError);
               continue;
             }
+
             customItemId = customData.id;
-
-            if (userId) {
-              await supabase.from('custom_items').update({ user_id: userId }).eq('id', customItemId);
-            }
+            await supabase.from("custom_items").update({ user_id: userId }).eq("id", customItemId);
           }
-
-          const quantity = Number(item.quantity ?? 1);
-          const volume = Number(item.volume ?? 0);
 
           const inventoryPayload = {
             booking_id: bookingId,
-            item_id: !item.isCustom && item.id && typeof item.id === 'string' && item.id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) ? item.id : null,
+            item_id: !item.isCustom && item.id && typeof item.id === "string" && item.id.match(/^[0-9a-f-]{36}$/i) ? item.id : null,
             custom_item_id: customItemId,
             name: item.name,
-            quantity,
-            volume,
+            quantity: Number(item.quantity ?? 1),
+            volume: Number(item.volume ?? 0),
             is_custom: item.isCustom ?? false,
             short_code: generateShortCode(),
           };
 
-          const { error: invError } = await supabase.from('inventory').insert([inventoryPayload]);
+          const { error: invError } = await supabase.from("inventory").insert([inventoryPayload]);
           if (invError) {
-            console.error('Error al guardar inventory:', invError);
-            alert('No pudimos guardar el inventario. Intenta de nuevo.');
+            console.error("[Booking] Error inventory:", invError);
+            alert("No pudimos guardar el inventario. Intenta de nuevo.");
             return;
           }
         }
       }
 
-      localStorage.setItem('quarto_booking_contact', JSON.stringify({ name, email, phone }));
-      onConfirm(name);
+      // 5) Guardar contacto
+      localStorage.setItem("quarto_booking_contact", JSON.stringify({ name, email, phone }));
+
+      // 6) Construir orden Wompi (para widget)
+      const wompiOrder = {
+        reference: `QUARTO_${bookingId}_${Date.now()}`,
+        amountInCents: Math.round(totalToPayCOP * 100), // COP → centavos
+        currency: "COP",
+        bookingId,
+        meta: {
+          name,
+          email,
+          phone,
+        },
+      };
+
+      console.log("[Booking] wompiOrder:", wompiOrder);
+
+      if (!onGoToPayment) {
+        console.error("[Booking] onGoToPayment no está conectado en Calculator.");
+        alert("No pudimos continuar a pagos (falta conectar onGoToPayment).");
+        return;
+      }
+
+      onGoToPayment(wompiOrder);
+
     } catch (err) {
-      console.error('Error inesperado al guardar la reserva:', err);
-      alert('Ocurrió un error al guardar tu reserva.');
+      console.error("[Booking] Error inesperado:", err);
+      alert("Ocurrió un error al guardar tu reserva.");
     }
   };
 
   const isFormValid =
-    name.trim() !== '' &&
-    email.trim() !== '' &&
-    phone.trim() !== '' &&
-    documentNumber.trim() !== '' &&
-    date.trim() !== '' &&
-    timeSlot.trim() !== '' &&
+    name.trim() !== "" &&
+    email.trim() !== "" &&
+    phone.trim() !== "" &&
+    documentNumber.trim() !== "" &&
+    date.trim() !== "" &&
+    timeSlot.trim() !== "" &&
     !emailError &&
     !phoneError &&
-    (bookingType === 'person' || (companyName.trim() !== '' && companyNit.trim() !== ''));
+    (bookingType === "person" || (companyName.trim() !== "" && companyNit.trim() !== ""));
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toISOString().split("T")[0];
 
   return (
     <div className="min-h-screen flex flex-col ">
@@ -384,7 +348,7 @@ const BookingScreen = ({
                 <option value="company">Empresa</option>
               </Select>
 
-              {bookingType === 'company' && (
+              {bookingType === "company" && (
                 <div className="space-y-4 bg-white border border-slate-200 rounded-2xl p-4">
                   <Input
                     id="companyName"
@@ -401,7 +365,7 @@ const BookingScreen = ({
                     type="text"
                     inputMode="numeric"
                     value={companyNit}
-                    onChange={(e) => setCompanyNit(e.target.value.replace(/\D/g, ''))}
+                    onChange={(e) => setCompanyNit(e.target.value.replace(/\D/g, ""))}
                     placeholder="Ej: 900123456"
                     required
                   />
@@ -410,7 +374,7 @@ const BookingScreen = ({
 
               <Input
                 id="name"
-                label={bookingType === 'company' ? 'Nombre completo (contacto)' : 'Nombre completo'}
+                label={bookingType === "company" ? "Nombre completo (contacto)" : "Nombre completo"}
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -418,18 +382,20 @@ const BookingScreen = ({
                 required
                 autoComplete="name"
               />
+
               <Input
                 id="email"
                 label="Correo electrónico"
                 type="email"
                 value={email}
                 onChange={handleEmailChange}
-                onBlur={() => handleBlur('email')}
+                onBlur={() => handleBlur("email")}
                 placeholder="Ej: ana.maria@correo.com"
                 required
                 autoComplete="email"
-                error={touched.email ? emailError : ''}
+                error={touched.email ? emailError : ""}
               />
+
               <Input
                 id="phone"
                 label="Teléfono"
@@ -437,12 +403,12 @@ const BookingScreen = ({
                 inputMode="numeric"
                 value={phone}
                 onChange={handlePhoneChange}
-                onBlur={() => handleBlur('phone')}
+                onBlur={() => handleBlur("phone")}
                 placeholder="Ej: 3001234567"
                 required
                 autoComplete="tel"
                 maxLength={10}
-                error={touched.phone ? phoneError : ''}
+                error={touched.phone ? phoneError : ""}
               />
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -460,6 +426,7 @@ const BookingScreen = ({
                     </option>
                   ))}
                 </Select>
+
                 <Input
                   id="document-number"
                   label="Número de documento"
@@ -475,7 +442,7 @@ const BookingScreen = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Input
                   id="date"
-                  label={logisticsMethod === 'Recogida' ? 'Fecha de Recogida' : 'Fecha de Llegada a Bodega'}
+                  label={logisticsMethod === "Recogida" ? "Fecha de Recogida" : "Fecha de Llegada a Bodega"}
                   type="date"
                   value={date}
                   onChange={(e) => setDate(e.target.value)}
@@ -509,6 +476,7 @@ const BookingScreen = ({
               >
                 Volver
               </Button>
+
               <Button
                 type="submit"
                 disabled={!isFormValid}
