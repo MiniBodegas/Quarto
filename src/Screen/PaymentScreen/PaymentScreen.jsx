@@ -1,9 +1,9 @@
 // Payment Screennnnnn Perfecto
 
-
-
 import { useEffect, useState } from "react";
 import { WompiPayButton, Button } from "../../Components";
+
+const API_URL = import.meta.env.VITE_API_URL;
 
 const PaymentScreen = ({ wompi, onBack }) => {
   const [signature, setSignature] = useState(null);
@@ -26,14 +26,14 @@ const PaymentScreen = ({ wompi, onBack }) => {
         console.log("publicKey:", import.meta.env.VITE_WOMPI_PUBLIC_KEY);
         console.groupEnd();
 
-        const res = await fetch("http://localhost:3000/api/wompi/integrity", {
+        const res = await fetch(`${API_URL}/api/wompi/integrity`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             reference: wompi.reference,
             amountInCents: wompi.amountInCents,
             currency: wompi.currency || "COP",
-            publicKey: import.meta.env.VITE_WOMPI_PUBLIC_KEY, // ✅ CLAVE
+            publicKey: import.meta.env.VITE_WOMPI_PUBLIC_KEY,
           }),
         });
 
@@ -74,43 +74,74 @@ const PaymentScreen = ({ wompi, onBack }) => {
   const totalCOP = wompi.amountInCents / 100;
 
   return (
-    <div className="w-full px-4 sm:px-6 lg:px-8 flex-grow">
-      <h1 className="text-2xl font-bold text-[#012E58] mb-4">
-        Pagar servicio
-      </h1>
+    <div className="w-full px-4 sm:px-6 py-8 flex items-center justify-center">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-slate-200 p-6 sm:p-8">
 
-      <p className="mb-6 text-slate-600">
-        Total a pagar:{" "}
-        <strong>${totalCOP.toLocaleString("es-CO")}</strong>
-      </p>
+        {/* Header */}
+        <h1 className="text-2xl font-bold text-[#012E58] mb-1">
+          Paso final: realiza tu pago
+        </h1>
+        <p className="text-slate-600 mb-4 text-sm">
+          Tu reserva quedará confirmada automáticamente.
+        </p>
 
-      {loadingSig && (
-        <p className="text-slate-600">Preparando pago seguro...</p>
-      )}
+        {/* Resumen */}
+        <div className="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex justify-between mb-2">
+            <span className="text-slate-600 text-sm">Servicio</span>
+            <span className="font-medium text-sm">Almacenamiento Quarto</span>
+          </div>
 
-      {!!sigError && (
-        <div className="p-4 rounded-xl border border-red-200 bg-red-50 text-red-700 mb-4">
-          {sigError}
+          <div className="flex justify-between">
+            <span className="text-slate-600 text-sm">Total a pagar</span>
+            <span className="font-bold text-lg text-[#012E58]">
+              ${totalCOP.toLocaleString("es-CO")}
+            </span>
+          </div>
         </div>
-      )}
 
-        {!loadingSig && signature && (
-        <WompiPayButton
-            publicKey={import.meta.env.VITE_WOMPI_PUBLIC_KEY}
-            reference={wompi.reference}
-            amountInCents={wompi.amountInCents}
-            currency="COP"
-            signatureIntegrity={signature}
-            />
+        {/* Estados */}
+        {loadingSig && (
+          <p className="text-slate-600 mb-4 text-sm text-center">
+            🔐 Preparando pago seguro…
+          </p>
         )}
 
-      <div className="mt-6">
-        <Button variant="secondary" onClick={onBack}>
-          Volver
-        </Button>
+        {!!sigError && (
+          <div className="p-3 rounded-xl border border-red-200 bg-red-50 text-red-700 mb-4 text-sm">
+            {sigError}
+          </div>
+        )}
+
+        {/* Botón Wompi */}
+        {!loadingSig && signature && (
+          <div className="mb-4">
+            <WompiPayButton
+              publicKey={import.meta.env.VITE_WOMPI_PUBLIC_KEY}
+              reference={wompi.reference}
+              amountInCents={wompi.amountInCents}
+              currency="COP"
+              signatureIntegrity={signature}
+            />
+          </div>
+        )}
+
+        {/* Seguridad */}
+        <p className="text-xs text-slate-500 text-center mb-4">
+          🔒 Pago procesado de forma segura por Wompi.  
+          No compartimos tu información financiera.
+        </p>
+
+        {/* Back */}
+        <div className="flex justify-center">
+          <Button variant="secondary" onClick={onBack}>
+            Volver
+          </Button>
+        </div>
       </div>
     </div>
   );
+
 };
 
 export default PaymentScreen;

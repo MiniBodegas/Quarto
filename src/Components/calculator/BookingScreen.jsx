@@ -210,6 +210,28 @@ const BookingScreen = ({
 
       const bookingId = booking.id;
 
+      // 2.1) Construir orden Wompi (para widget)
+      const wompiOrder = {
+        reference: `QUARTO_${bookingId}_${Date.now()}`,
+        amountInCents: Math.round(totalToPayCOP * 100), // COP → centavos
+        currency: "COP",
+        bookingId,
+        meta: {
+          name,
+          email,
+          phone,
+        },
+      };
+
+      // 2.2) Actualizar booking con estado de pago pendiente y referencia Wompi
+      await supabase
+        .from("bookings")
+        .update({
+          payment_status: "PENDING",
+          wompi_reference: wompiOrder.reference,
+        })
+        .eq("id", bookingId);
+
       // 3) Si hay transport asociado, linkear booking_id
       if (transport?.id) {
         const { error: transportUpdateError } = await supabase
@@ -284,19 +306,7 @@ const BookingScreen = ({
       // 5) Guardar contacto
       localStorage.setItem("quarto_booking_contact", JSON.stringify({ name, email, phone }));
 
-      // 6) Construir orden Wompi (para widget)
-      const wompiOrder = {
-        reference: `QUARTO_${bookingId}_${Date.now()}`,
-        amountInCents: Math.round(totalToPayCOP * 100), // COP → centavos
-        currency: "COP",
-        bookingId,
-        meta: {
-          name,
-          email,
-          phone,
-        },
-      };
-
+      // 6) Ya tenemos wompiOrder creado arriba (después de insertar booking)
       console.log("[Booking] wompiOrder:", wompiOrder);
 
       if (!onGoToPayment) {
