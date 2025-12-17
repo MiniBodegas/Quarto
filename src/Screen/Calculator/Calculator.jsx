@@ -14,6 +14,7 @@ import {
   ConfirmationScreen,
   ScreenHeader,
   Input,
+  HomeScreen,
 } from '../../Components';
 import { SearchIcon, ChevronDownIcon } from '../../Components/calculator/icons';
 import { InventoryPhotoScreen, PaymentScreen } from '../index';
@@ -22,7 +23,8 @@ import { calculateStoragePrice } from '../../utils/pricing'; // ✅ NUEVO (para 
 // --- State Management with Reducer ---
 
 const initialState = {
-  view: 'calculator',
+  view: 'home', // ✅ Nueva vista inicial
+  mode: null, // 'manual' | 'ai'
   logisticsMethod: null,
   transportPrice: null,
   customerName: null,
@@ -31,6 +33,13 @@ const initialState = {
 
 function appReducer(state, action) {
   switch (action.type) {
+    case 'SELECT_MODE':
+      return {
+        ...state,
+        mode: action.payload,
+        view: action.payload === 'manual' ? 'calculator' : 'inventoryPhotos',
+      };
+
     case 'SET_WOMPI_ORDER':
       return { ...state, wompi: action.payload };
 
@@ -55,8 +64,12 @@ function appReducer(state, action) {
 
     case 'GO_BACK': {
       switch (state.view) {
+        case 'calculator':
+          return { ...initialState, view: 'home' };
+        case 'inventoryPhotos':
+          return { ...initialState, view: 'home' };
         case 'logistics':
-          return { ...initialState, view: 'calculator' };
+          return { ...state, view: state.mode === 'ai' ? 'inventoryPhotos' : 'calculator' };
         case 'transport':
           return { ...state, view: 'logistics', transportPrice: null };
         case 'finalSummary':
@@ -184,6 +197,13 @@ const Calculator = () => {
 
   const renderScreen = () => {
     switch (state.view) {
+      case 'home':
+        return (
+          <HomeScreen
+            onModeSelect={(mode) => dispatch({ type: 'SELECT_MODE', payload: mode })}
+          />
+        );
+
       case 'inventoryPhotos':
         return (
           <InventoryPhotoScreen
@@ -285,7 +305,7 @@ const Calculator = () => {
       case 'calculator':
       default:
         return (
-          <div className="w-full px-4 sm:px-6 lg:px-8 flex-grow">
+          <div className="w-full px-4 sm:px-6 lg:px-8 flex-grow relative pb-20">
             <ScreenHeader
               title="Calcula tu espacio"
               subtitle="Selecciona los artículos que tienes para almacenar."
@@ -404,6 +424,31 @@ const Calculator = () => {
                   onRemoveItem={handleRemoveSelectedItem}
                 />
               </aside>
+            </div>
+
+            {/* Botón Volver al Home - Parte inferior izquierda */}
+            <div className="fixed bottom-6 left-6 z-40">
+              <button
+                onClick={() => dispatch({ type: 'GO_BACK' })}
+                className="group flex items-center gap-2 bg-white hover:bg-[#074BED] text-[#012E58] hover:text-white px-6 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 border-2 border-[#012E58] hover:border-[#074BED] font-semibold"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 transform group-hover:-translate-x-1 transition-transform duration-300"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                  />
+                </svg>
+                <span className="hidden sm:inline">Cambiar método</span>
+                <span className="sm:hidden">Volver</span>
+              </button>
             </div>
           </div>
         );

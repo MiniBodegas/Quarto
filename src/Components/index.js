@@ -48,5 +48,6 @@ export {default as ConfirmModal} from './calculator/ConfirmModal'
 
 export { default as InventoryPhoto} from './calculator/Inventory';
 export { default as Header} from './Header';
+export { default as HomeScreen} from './HomeScreen';
 
 export { default as WompiPayButton} from './WompiButton';
