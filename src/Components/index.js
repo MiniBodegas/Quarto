@@ -31,6 +31,7 @@ export { default as Spinner } from './ui/Spinner';
 export { ToastContainer } from './ui/Toast';
 
 export {default as AddItemForm} from './calculator/AddItemForm'
+export {default as AIPhotoUpload} from './calculator/AIPhotoUpload'
 export {default as BookingScreen} from './calculator/BookingScreen'
 export {default as ConfirmationScreen} from './calculator/ConfirmationScreen'
 export {default as FinalSummaryScreen} from './calculator/FinalSummaryScreen'

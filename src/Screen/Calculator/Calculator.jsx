@@ -17,7 +17,7 @@ import {
   HomeScreen,
 } from '../../Components';
 import { SearchIcon, ChevronDownIcon } from '../../Components/calculator/icons';
-import { InventoryPhotoScreen, PaymentScreen } from '../index';
+import { InventoryPhotoScreen, PaymentScreen, AIPhotoScreen } from '../index';
 import { calculateStoragePrice } from '../../utils/pricing'; // ✅ NUEVO (para totalPriceCOP)
 
 // --- State Management with Reducer ---
@@ -37,7 +37,7 @@ function appReducer(state, action) {
       return {
         ...state,
         mode: action.payload,
-        view: action.payload === 'manual' ? 'calculator' : 'inventoryPhotos',
+        view: action.payload === 'manual' ? 'calculator' : 'aiPhotos',
       };
 
     case 'SET_WOMPI_ORDER':
@@ -66,10 +66,12 @@ function appReducer(state, action) {
       switch (state.view) {
         case 'calculator':
           return { ...initialState, view: 'home' };
+        case 'aiPhotos':
+          return { ...initialState, view: 'home' };
         case 'inventoryPhotos':
           return { ...initialState, view: 'home' };
         case 'logistics':
-          return { ...state, view: state.mode === 'ai' ? 'inventoryPhotos' : 'calculator' };
+          return { ...state, view: state.mode === 'ai' ? 'aiPhotos' : 'calculator' };
         case 'transport':
           return { ...state, view: 'logistics', transportPrice: null };
         case 'finalSummary':
@@ -201,6 +203,22 @@ const Calculator = () => {
         return (
           <HomeScreen
             onModeSelect={(mode) => dispatch({ type: 'SELECT_MODE', payload: mode })}
+          />
+        );
+
+      case 'aiPhotos':
+        return (
+          <AIPhotoScreen
+            onBack={() => dispatch({ type: 'GO_BACK' })}
+            onContinue={(aiResults) => {
+              console.log('[Calculator] Resultados de IA recibidos:', aiResults);
+              
+              // Aquí puedes procesar los resultados de la IA
+              // y convertirlos a items en el inventario
+              
+              // Por ahora solo navegamos a logistics
+              dispatch({ type: 'NAVIGATE_TO', payload: 'logistics' });
+            }}
           />
         );
 
