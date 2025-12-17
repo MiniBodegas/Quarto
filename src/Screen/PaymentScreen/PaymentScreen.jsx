@@ -1,7 +1,7 @@
-// Payment Screen con Verificación Automática
+// Payment Screen con Verificación Automática Silenciosa
 
 import { useEffect, useState } from "react";
-import { WompiPayButton, Button, Spinner } from "../../Components";
+import { WompiPayButton, Button } from "../../Components";
 import { supabase } from "../../supabase";
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -10,10 +10,6 @@ const PaymentScreen = ({ wompi, onBack, onPaymentSuccess }) => {
   const [signature, setSignature] = useState(null);
   const [loadingSig, setLoadingSig] = useState(false);
   const [sigError, setSigError] = useState("");
-  
-  // ✅ Estado de verificación automática
-  const [checkingPayment, setCheckingPayment] = useState(false);
-  const [paymentChecks, setPaymentChecks] = useState(0);
 
   // Efecto para generar firma
   useEffect(() => {
@@ -68,14 +64,16 @@ const PaymentScreen = ({ wompi, onBack, onPaymentSuccess }) => {
     run();
   }, [wompi]);
 
-  // ✅ Efecto para verificar el pago automáticamente cada 5 segundos
+  // ✅ Efecto para verificar el pago automáticamente cada 10 segundos (silencioso)
   useEffect(() => {
     if (!wompi?.bookingId) return;
 
+    let verificationCount = 0;
+
     const checkPaymentStatus = async () => {
       try {
-        setCheckingPayment(true);
-        console.log(`[Payment] 🔍 Verificación automática #${paymentChecks + 1}`);
+        verificationCount++;
+        console.log(`[Payment] 🔍 Verificación silenciosa #${verificationCount}`);
 
         // ✅ Traer toda la info del booking incluyendo wompi_transaction_id
         const { data: booking, error } = await supabase
@@ -103,37 +101,33 @@ const PaymentScreen = ({ wompi, onBack, onPaymentSuccess }) => {
           });
           
           // Limpiar interval
-          if (intervalId) clearInterval(intervalId);
+          clearInterval(intervalId);
           
           // Llamar callback de éxito con toda la info
           if (onPaymentSuccess) {
             onPaymentSuccess(booking);
           }
-        } else {
-          setPaymentChecks(prev => prev + 1);
         }
       } catch (err) {
         console.error("[Payment] Error en verificación automática:", err);
-      } finally {
-        setCheckingPayment(false);
       }
     };
 
-    // Primera verificación después de 5 segundos
+    // Primera verificación después de 10 segundos
     const timeoutId = setTimeout(() => {
       checkPaymentStatus();
-    }, 5000);
+    }, 10000);
 
-    // Verificaciones periódicas cada 5 segundos
+    // Verificaciones periódicas cada 10 segundos
     const intervalId = setInterval(() => {
       checkPaymentStatus();
-    }, 5000);
+    }, 10000);
 
-    // Limpiar al desmontar o después de 5 minutos (60 verificaciones)
+    // Limpiar al desmontar o después de 10 minutos (60 verificaciones)
     const maxChecksTimeout = setTimeout(() => {
-      console.log("[Payment] ⏱️ Tiempo máximo de verificación alcanzado");
+      console.log("[Payment] ⏱️ Tiempo máximo de verificación alcanzado (10 min)");
       clearInterval(intervalId);
-    }, 300000); // 5 minutos
+    }, 600000); // 10 minutos
 
     return () => {
       clearTimeout(timeoutId);
@@ -205,44 +199,6 @@ const PaymentScreen = ({ wompi, onBack, onPaymentSuccess }) => {
             />
           </div>
         )}
-
-        {/* ✅ Indicador de verificación automática */}
-        <div className="mb-4">
-          {checkingPayment && (
-            <div className="flex items-center justify-center gap-3 text-slate-600 bg-blue-50 border border-blue-200 rounded-xl p-4">
-              <Spinner size="sm" />
-              <div className="text-sm">
-                <p className="font-medium">🔍 Verificando estado del pago...</p>
-                <p className="text-xs text-slate-500 mt-1">Verificación #{paymentChecks}</p>
-              </div>
-            </div>
-          )}
-
-          {!checkingPayment && paymentChecks > 0 && (
-            <div className="text-center bg-slate-50 border border-slate-200 rounded-xl p-4">
-              <p className="text-slate-700 text-sm font-medium">
-                ⏱️ Verificación automática activa
-              </p>
-              <p className="text-xs text-slate-500 mt-2">
-                {paymentChecks} {paymentChecks === 1 ? 'verificación' : 'verificaciones'} • Revisando cada 5 segundos
-              </p>
-              <p className="text-xs text-slate-400 mt-1">
-                Serás redirigido automáticamente cuando se confirme el pago
-              </p>
-            </div>
-          )}
-
-          {paymentChecks === 0 && !checkingPayment && signature && (
-            <div className="text-center bg-green-50 border border-green-200 rounded-xl p-4">
-              <p className="text-green-700 text-sm font-medium">
-                ✨ Verificación automática lista
-              </p>
-              <p className="text-xs text-green-600 mt-1">
-                Comenzaremos a verificar tu pago en 5 segundos
-              </p>
-            </div>
-          )}
-        </div>
 
         {/* Seguridad */}
         <p className="text-xs text-slate-500 text-center mb-4">
