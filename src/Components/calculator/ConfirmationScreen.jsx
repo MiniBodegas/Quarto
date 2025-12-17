@@ -1,7 +1,7 @@
 import { Button } from '../index';
 import { useEffect } from 'react';
 
-const ConfirmationScreen = ({ customerName, onReset }) => {
+const ConfirmationScreen = ({ customerName, transactionId, onReset }) => {
   // ✅ Limpiar datos de sesión cuando llegue a confirmación
   useEffect(() => {
     console.log('[ConfirmationScreen] 🧹 Limpiando datos de sesión');
@@ -39,6 +39,18 @@ const ConfirmationScreen = ({ customerName, onReset }) => {
           <p className="mt-3 text-sm text-[#012E58]/80 max-w-xl mx-auto">
             Recibirás un correo electrónico con los detalles. Un especialista de nuestro equipo se pondrá en contacto contigo en las próximas 24 horas para finalizar la coordinación.
           </p>
+
+          {/* ✅ Mostrar número de transacción si existe */}
+          {transactionId && (
+            <div className="mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4 max-w-md mx-auto">
+              <p className="text-sm font-medium text-blue-900 mb-1">
+                🎫 Número de Transacción
+              </p>
+              <p className="text-xs text-blue-700 font-mono bg-white px-3 py-2 rounded-lg border border-blue-100">
+                {transactionId}
+              </p>
+            </div>
+          )}
 
           <div className="mt-10">
             <Button onClick={onReset} className="!py-2.5 font-bold shadow-lg hover:shadow-xl">

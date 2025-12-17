@@ -29,6 +29,7 @@ const initialState = {
   logisticsMethod: null,
   transportPrice: null,
   customerName: null,
+  transactionId: null, // ✅ Guardar transaction ID de Wompi
   wompi: null,
   aiResults: null, // ✅ Almacenar resultados de IA
 };
@@ -62,7 +63,12 @@ function appReducer(state, action) {
       return { ...state, view: 'finalSummary', transportPrice: action.payload };
 
     case 'CONFIRM_BOOKING':
-      return { ...state, view: 'confirmation', customerName: action.payload.name };
+      return { 
+        ...state, 
+        view: 'confirmation', 
+        customerName: action.payload.name,
+        transactionId: action.payload.transactionId || null, // ✅ Guardar transaction ID
+      };
 
     case 'RESET_APP':
       return { ...initialState };
@@ -358,6 +364,27 @@ const Calculator = () => {
           <PaymentScreen
             wompi={state.wompi}
             onBack={() => dispatch({ type: 'GO_BACK' })}
+            onPaymentSuccess={(booking) => {
+              console.log('[Calculator] 💳 Pago verificado exitosamente:', booking);
+              console.log('[Calculator] 🎫 Transaction ID:', booking.wompi_transaction_id);
+              
+              // ✅ Limpiar todo después de pago exitoso
+              clearAll();
+              localStorage.removeItem('quarto_current_booking_id');
+              localStorage.removeItem('quarto_booking_form');
+              localStorage.removeItem('quarto_logistics_method');
+              localStorage.removeItem('quarto_transport');
+              console.log('[Calculator] 🧹 Sesión limpiada después de pago');
+              
+              // Navegar a confirmación con transaction ID
+              dispatch({ 
+                type: 'CONFIRM_BOOKING', 
+                payload: { 
+                  name: booking.name,
+                  transactionId: booking.wompi_transaction_id // ✅ Pasar transaction ID
+                } 
+              });
+            }}
           />
         );
 
@@ -365,6 +392,7 @@ const Calculator = () => {
         return (
           <ConfirmationScreen
             customerName={state.customerName}
+            transactionId={state.transactionId} // ✅ Pasar transaction ID
             onReset={() => {
               console.log('[Calculator] 🔄 Reset completo después de confirmación');
               resetToDefaults(); // ✅ Volver a items iniciales
