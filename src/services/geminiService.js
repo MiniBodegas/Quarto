@@ -31,53 +31,63 @@ const fileToGenerativePart = async (file) => {
  * @returns {Promise<Object>} - Resultados del análisis con items, volumen total y resumen
  */
 export const analyzeSpaceFromImage = async (imageFiles) => {
+  let responseText = ''; // Declarar fuera del try para acceso en catch
+  
   try {
+    // ✅ Validar tamaño de imágenes antes de procesar
+    const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB por imagen
+    const oversizedFiles = imageFiles.filter(file => file.size > MAX_FILE_SIZE);
+    
+    if (oversizedFiles.length > 0) {
+      const fileNames = oversizedFiles.map(f => f.name).join(', ');
+      throw new Error(`Las siguientes imágenes son muy grandes: ${fileNames}. Máximo 4MB por imagen.`);
+    }
+
     // Convertir todas las imágenes a base64
     const imageParts = await Promise.all(imageFiles.map(fileToGenerativePart));
 
     const prompt = `
-      Actúa como un experto estimador de mudanzas y logística. 
-      Analiza las imágenes proporcionadas. Identifica todos los muebles, cajas, electrodomésticos y objetos visibles que ocuparían espacio en un camión de mudanza o bodega. Evita duplicados si el mismo objeto aparece en múltiples fotos desde diferentes ángulos.
-      
-      Para cada objeto identificado:
-      1. Identifica el nombre en ESPAÑOL.
-      2. Estima la cantidad de elementos idénticos.
-      3. Consulta tu base de conocimientos de dimensiones estándar para ese tipo de objeto y estima su Largo, Ancho y Alto en METROS.
-      4. Calcula el volumen en metros cúbicos (m³) (Largo * Ancho * Alto * Cantidad).
-      5. Clasifícalo utilizando EXACTAMENTE una de las siguientes categorías en español según la habitación a la que pertenece típicamente: 'Sala de estar', 'Comedor y cocina', 'Dormitorio', 'Oficina', 'Varios'.
+Eres un experto en mudanzas. Analiza las imágenes e identifica SOLO los muebles y objetos principales visibles.
 
-      Genera un resumen general muy conciso y directo en ESPAÑOL sobre el volumen total y la complejidad de la carga. NO listes los artículos en el resumen, el resumen es solo una visión general.
-      
-      Es CRUCIAL que las dimensiones sean estimaciones realistas basadas en estándares de la industria.
-      IMPORTANTE: Todo el texto de salida DEBE estar en ESPAÑOL.
+INSTRUCCIONES:
+1. Nombre del objeto en ESPAÑOL (corto y claro)
+2. Cantidad de objetos idénticos
+3. Dimensiones estimadas en METROS (Largo, Ancho, Alto) - usa estándares de la industria
+4. Calcula volumen: Largo × Ancho × Alto × Cantidad
+5. Categoría: 'Sala de estar', 'Comedor y cocina', 'Dormitorio', 'Oficina', o 'Varios'
 
-      Devuelve un JSON con esta estructura:
-      {
-        "items": [
-          {
-            "name": "string",
-            "quantity": number,
-            "lengthM": number,
-            "widthM": number,
-            "heightM": number,
-            "volumeM3": number,
-            "category": "string"
-          }
-        ],
-        "totalVolumeM3": number,
-        "summary": "string"
-      }
-    `;
+IMPORTANTE:
+- Evita duplicados si ves el mismo objeto en varias fotos
+- Sé breve en el resumen (máximo 2 líneas)
+- Usa números decimales completos (1.5 en lugar de 1.)
 
-    // Obtener el modelo (versión estable y rápida)
+Devuelve este JSON exacto:
+{
+  "items": [
+    {
+      "name": "string",
+      "quantity": number,
+      "lengthM": number,
+      "widthM": number,
+      "heightM": number,
+      "volumeM3": number,
+      "category": "string"
+    }
+  ],
+  "totalVolumeM3": number,
+  "summary": "string"
+}
+    `.trim();
+
+    // Obtener el modelo (usar gemini-1.5-flash que es más estable)
     const model = genAI.getGenerativeModel({ 
       model: "gemini-2.5-flash",
       generationConfig: {
-        temperature: 0.2, // Bajamos la temperatura para que sea más preciso
+        temperature: 0.2,
         topK: 32,
         topP: 1,
-        maxOutputTokens: 4096,
-        responseMimeType: "application/json", // Respuesta en JSON puro
+        maxOutputTokens: 8192, // ✅ Aumentado para evitar truncamiento
+        responseMimeType: "application/json",
       },
     });
 
@@ -89,14 +99,37 @@ export const analyzeSpaceFromImage = async (imageFiles) => {
 
     // Obtener el texto de forma segura
     const response = await result.response;
-    const responseText = response.text();
+    responseText = response.text();
     
     if (!responseText) {
       throw new Error("La IA no devolvió resultados.");
     }
 
-    // Parsear el resultado (ya viene como JSON directo)
-    const parsedResult = JSON.parse(responseText);
+    console.log('[Gemini] Respuesta cruda:', responseText);
+    console.log('[Gemini] Longitud de respuesta:', responseText.length);
+
+    // Verificar si el JSON está truncado (termina abruptamente)
+    const lastChar = responseText.trim().slice(-1);
+    if (lastChar !== '}' && lastChar !== ']') {
+      console.warn('[Gemini] ⚠️ JSON parece truncado, última letra:', lastChar);
+      throw new Error('La respuesta de IA está incompleta. Intenta con menos fotos o fotos más pequeñas.');
+    }
+
+    // Limpiar JSON mal formado (decimales incompletos como "1." → "1.0")
+    responseText = responseText
+      .replace(/:\s*(\d+)\.\s*,/g, ': $1.0,')  // "lengthM": 1., → "lengthM": 1.0,
+      .replace(/:\s*(\d+)\.\s*}/g, ': $1.0}')  // "lengthM": 1. } → "lengthM": 1.0 }
+      .replace(/:\s*(\d+)\.\s*\n/g, ': $1.0\n'); // decimales con salto de línea
+
+    // Parsear el resultado
+    let parsedResult;
+    try {
+      parsedResult = JSON.parse(responseText);
+    } catch (parseError) {
+      console.error('[Gemini] Error parseando JSON:', parseError);
+      console.error('[Gemini] JSON problemático:', responseText.substring(0, 500), '...');
+      throw new Error('No se pudo procesar la respuesta de IA. Intenta con fotos más pequeñas.');
+    }
 
     // Validar estructura
     if (!parsedResult.items || !Array.isArray(parsedResult.items)) {
@@ -113,6 +146,14 @@ export const analyzeSpaceFromImage = async (imageFiles) => {
 
   } catch (error) {
     console.error("Error analizando imágenes con Gemini:", error);
-    throw new Error(`Error en el análisis de imágenes: ${error.message}`);
+    
+    if (error instanceof SyntaxError) {
+      console.error("JSON inválido recibido:", responseText);
+      throw new Error('La IA devolvió una respuesta incompleta. Intenta con menos fotos o reduce el tamaño de las imágenes.');
+    }
+    
+    // Propagar error con mensaje amigable
+    const userMessage = error.message || 'Error desconocido al analizar imágenes';
+    throw new Error(userMessage);
   }
 };

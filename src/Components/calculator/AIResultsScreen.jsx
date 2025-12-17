@@ -76,20 +76,36 @@ const AIResultsScreen = ({
   };
 
   const handleDeleteItem = (index) => {
-    setItems(items.filter((_, i) => i !== index));
+    console.log('[AIResults] Eliminando item en índice:', index);
+    console.log('[AIResults] Item a eliminar:', items[index]);
+    const newItems = items.filter((_, i) => i !== index);
+    console.log('[AIResults] Items después de eliminar:', newItems);
+    setItems(newItems);
   };
 
   const handleRemoveFromSummary = (id) => {
-    setItems(items.filter((_, i) => i !== id));
+    console.log('[AIResults] Eliminando desde Summary, id:', id);
+    const newItems = items.filter((_, i) => i !== id);
+    console.log('[AIResults] Items después de eliminar desde Summary:', newItems);
+    setItems(newItems);
   };
 
   const handleClearAll = () => {
     if (window.confirm('¿Estás seguro de que quieres vaciar todo el inventario?')) {
+      console.log('[AIResults] Vaciando todo el inventario');
       setItems([]);
     }
   };
 
   const handleContinue = () => {
+    // ✅ Validar que hay items antes de continuar
+    if (items.length === 0) {
+      alert('No hay objetos en el inventario. Agrega al menos uno para continuar.');
+      return;
+    }
+
+    console.log('[AIResults] Items actuales antes de continuar:', items);
+    
     // Convertir items al formato que espera la calculadora
     const formattedItems = items.map(item => ({
       name: item.name,
@@ -102,6 +118,7 @@ const AIResultsScreen = ({
       category: item.category
     }));
     
+    console.log('[AIResults] Items formateados para enviar:', formattedItems);
     onContinue(formattedItems);
   };
 

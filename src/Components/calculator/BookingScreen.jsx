@@ -42,12 +42,52 @@ const BookingScreen = ({
   const [phoneError, setPhoneError] = useState("");
   const [touched, setTouched] = useState({ email: false, phone: false });
 
+  // ✅ Cargar datos del formulario desde localStorage al montar
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem("quarto_user") || "{}");
-    if (userData.name) setName(userData.name);
-    if (userData.email) setEmail(userData.email);
-    if (userData.phone) setPhone(userData.phone);
+    const savedFormData = JSON.parse(localStorage.getItem("quarto_booking_form") || "{}");
+    
+    if (Object.keys(savedFormData).length > 0) {
+      // Si hay datos guardados, restaurar todo el formulario
+      if (savedFormData.bookingType) setBookingType(savedFormData.bookingType);
+      if (savedFormData.companyName) setCompanyName(savedFormData.companyName);
+      if (savedFormData.companyNit) setCompanyNit(savedFormData.companyNit);
+      if (savedFormData.name) setName(savedFormData.name);
+      if (savedFormData.email) setEmail(savedFormData.email);
+      if (savedFormData.phone) setPhone(savedFormData.phone);
+      if (savedFormData.documentType) setDocumentType(savedFormData.documentType);
+      if (savedFormData.documentNumber) setDocumentNumber(savedFormData.documentNumber);
+      if (savedFormData.date) setDate(savedFormData.date);
+      if (savedFormData.timeSlot) setTimeSlot(savedFormData.timeSlot);
+      
+      console.log('[BookingScreen] 📋 Formulario restaurado desde localStorage');
+    } else {
+      // Si no hay formulario guardado, cargar solo datos básicos del usuario
+      const userData = JSON.parse(localStorage.getItem("quarto_user") || "{}");
+      if (userData.name) setName(userData.name);
+      if (userData.email) setEmail(userData.email);
+      if (userData.phone) setPhone(userData.phone);
+      
+      console.log('[BookingScreen] 👤 Datos de usuario cargados');
+    }
   }, []);
+
+  // ✅ Guardar el formulario en localStorage cada vez que cambien los datos
+  useEffect(() => {
+    const formData = {
+      bookingType,
+      companyName,
+      companyNit,
+      name,
+      email,
+      phone,
+      documentType,
+      documentNumber,
+      date,
+      timeSlot,
+    };
+    
+    localStorage.setItem("quarto_booking_form", JSON.stringify(formData));
+  }, [bookingType, companyName, companyNit, name, email, phone, documentType, documentNumber, date, timeSlot]);
 
   const loadFromLocalStorage = () => {
     try {
@@ -177,38 +217,78 @@ const BookingScreen = ({
         userId = newUser.id;
       }
 
-      // 2) Inserta booking
-      const bookingPayload = {
-        user_id: userId,
-        booking_type: bookingType,
-        company_name: bookingType === "company" ? companyName : null,
-        company_nit: bookingType === "company" ? companyNit : null,
-        name,
-        email,
-        phone,
-        document_type: documentType,
-        document_number: documentNumber,
-        date,
-        time_slot: timeSlot,
-        total_volume: finalTotalVolume,
-        total_items: finalTotalItems,
-        logistics_method: finalLogisticsMethod,
-        transport_price: transportCOP,
-      };
+      // 2) Inserta o recupera booking existente
+      let bookingId = localStorage.getItem('quarto_current_booking_id');
+      let booking = null;
 
-      const { data: booking, error: bookingError } = await supabase
-        .from("bookings")
-        .insert([bookingPayload])
-        .select()
-        .single();
+      if (bookingId) {
+        // ✅ Verificar si el booking existe
+        const { data: existingBooking } = await supabase
+          .from("bookings")
+          .select("*")
+          .eq("id", bookingId)
+          .single();
 
-      if (bookingError) {
-        console.error("[Booking] Error guardando booking:", bookingError);
-        alert("Error al guardar la reserva: " + bookingError.message);
-        return;
+        if (existingBooking) {
+          console.log("[Booking] ♻️ Reutilizando booking existente:", bookingId);
+          booking = existingBooking;
+          
+          // Actualizar datos si cambiaron
+          await supabase
+            .from("bookings")
+            .update({
+              name,
+              phone,
+              document_type: documentType,
+              document_number: documentNumber,
+              date,
+              time_slot: timeSlot,
+            })
+            .eq("id", bookingId);
+        } else {
+          bookingId = null; // Booking ya no existe, crear uno nuevo
+        }
       }
 
-      const bookingId = booking.id;
+      if (!bookingId) {
+        // ✅ Crear nuevo booking
+        const bookingPayload = {
+          user_id: userId,
+          booking_type: bookingType,
+          company_name: bookingType === "company" ? companyName : null,
+          company_nit: bookingType === "company" ? companyNit : null,
+          name,
+          email,
+          phone,
+          document_type: documentType,
+          document_number: documentNumber,
+          date,
+          time_slot: timeSlot,
+          total_volume: finalTotalVolume,
+          total_items: finalTotalItems,
+          logistics_method: finalLogisticsMethod,
+          transport_price: transportCOP,
+        };
+
+        const { data: newBooking, error: bookingError } = await supabase
+          .from("bookings")
+          .insert([bookingPayload])
+          .select()
+          .single();
+
+        if (bookingError) {
+          console.error("[Booking] Error guardando booking:", bookingError);
+          alert("Error al guardar la reserva: " + bookingError.message);
+          return;
+        }
+
+        booking = newBooking;
+        bookingId = newBooking.id;
+        
+        // ✅ Guardar booking ID en localStorage
+        localStorage.setItem('quarto_current_booking_id', bookingId);
+        console.log("[Booking] 🆕 Nuevo booking creado:", bookingId);
+      }
 
       // 2.1) Construir orden Wompi (para widget)
       const wompiOrder = {
@@ -256,50 +336,64 @@ const BookingScreen = ({
 
         if (updateInventoryError) console.warn("[Booking] updateInventoryError:", updateInventoryError);
       } else {
-        const inv = JSON.parse(localStorage.getItem("quarto_inventory") || "[]");
+        // ✅ Verificar si ya hay inventario asociado a este booking
+        const { data: existingInventory } = await supabase
+          .from("inventory")
+          .select("id")
+          .eq("booking_id", bookingId)
+          .limit(1);
 
-        for (const item of inv) {
-          let customItemId = null;
+        if (existingInventory && existingInventory.length > 0) {
+          console.log("[Booking] ⚠️ Inventario ya existe para este booking, saltando inserción");
+        } else {
+          const inv = JSON.parse(localStorage.getItem("quarto_inventory") || "[]");
+          console.log("[Booking] 📦 Insertando", inv.length, "items al inventario");
 
-          if (item.isCustom) {
-            const { data: customData, error: customError } = await supabase
-              .from("custom_items")
-              .insert([{
-                name: item.name,
-                width: item.width,
-                height: item.height,
-                depth: item.depth,
-                volume: item.volume,
-              }])
-              .select()
-              .single();
+          for (const item of inv) {
+            let customItemId = null;
 
-            if (customError) {
-              console.warn("[Booking] customError:", customError);
-              continue;
+            if (item.isCustom) {
+              const { data: customData, error: customError } = await supabase
+                .from("custom_items")
+                .insert([{
+                  name: item.name,
+                  width: item.width,
+                  height: item.height,
+                  depth: item.depth,
+                  volume: item.volume,
+                }])
+                .select()
+                .single();
+
+              if (customError) {
+                console.warn("[Booking] customError:", customError);
+                continue;
+              }
+
+              customItemId = customData.id;
+              await supabase.from("custom_items").update({ user_id: userId }).eq("id", customItemId);
             }
 
-            customItemId = customData.id;
-            await supabase.from("custom_items").update({ user_id: userId }).eq("id", customItemId);
-          }
+            const inventoryPayload = {
+              booking_id: bookingId,
+              item_id: !item.isCustom && item.id && typeof item.id === "string" && item.id.match(/^[0-9a-f-]{36}$/i) ? item.id : null,
+              custom_item_id: customItemId,
+              name: item.name,
+              quantity: Number(item.quantity ?? 1),
+              volume: Number(item.volume ?? 0),
+              is_custom: item.isCustom ?? false,
+              short_code: generateShortCode(),
+            };
 
-          const inventoryPayload = {
-            booking_id: bookingId,
-            item_id: !item.isCustom && item.id && typeof item.id === "string" && item.id.match(/^[0-9a-f-]{36}$/i) ? item.id : null,
-            custom_item_id: customItemId,
-            name: item.name,
-            quantity: Number(item.quantity ?? 1),
-            volume: Number(item.volume ?? 0),
-            is_custom: item.isCustom ?? false,
-            short_code: generateShortCode(),
-          };
-
-          const { error: invError } = await supabase.from("inventory").insert([inventoryPayload]);
-          if (invError) {
-            console.error("[Booking] Error inventory:", invError);
-            alert("No pudimos guardar el inventario. Intenta de nuevo.");
-            return;
+            const { error: invError } = await supabase.from("inventory").insert([inventoryPayload]);
+            if (invError) {
+              console.error("[Booking] Error inventory:", invError);
+              alert("No pudimos guardar el inventario. Intenta de nuevo.");
+              return;
+            }
           }
+          
+          console.log("[Booking] ✅ Inventario guardado exitosamente");
         }
       }
 
@@ -309,6 +403,9 @@ const BookingScreen = ({
       // 6) Ya tenemos wompiOrder creado arriba (después de insertar booking)
       console.log("[Booking] wompiOrder:", wompiOrder);
 
+      // ✅ NO limpiar el formulario aquí porque el usuario va a ir a PaymentScreen
+      // Solo se limpiará cuando confirme el pago exitosamente
+      
       if (!onGoToPayment) {
         console.error("[Booking] onGoToPayment no está conectado en Calculator.");
         alert("No pudimos continuar a pagos (falta conectar onGoToPayment).");

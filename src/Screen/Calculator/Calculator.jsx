@@ -70,12 +70,18 @@ function appReducer(state, action) {
     case 'GO_BACK': {
       switch (state.view) {
         case 'calculator':
+          // ✅ Volver a home = limpiar booking ID
+          localStorage.removeItem('quarto_current_booking_id');
           return { ...initialState, view: 'home' };
         case 'aiPhotos':
+          // ✅ Volver a home = limpiar booking ID
+          localStorage.removeItem('quarto_current_booking_id');
           return { ...initialState, view: 'home' };
         case 'aiResults':
           return { ...state, view: 'aiPhotos' };
         case 'inventoryPhotos':
+          // ✅ Volver a home = limpiar booking ID
+          localStorage.removeItem('quarto_current_booking_id');
           return { ...initialState, view: 'home' };
         case 'logistics':
           return { ...state, view: state.mode === 'ai' ? 'aiResults' : 'calculator' };
@@ -89,10 +95,14 @@ function appReducer(state, action) {
         case 'quoteRequest':
           return { ...state, view: 'finalSummary' };
         case 'booking':
+          // ✅ NO limpiar booking ID aquí - permitir volver y seguir con el mismo booking
           return { ...state, view: 'finalSummary' };
         case 'payment':
+          // ✅ NO limpiar booking ID aquí - permitir volver y seguir con el mismo booking
           return { ...state, view: 'booking' };
         case 'confirmation':
+          // ✅ Después de confirmar = limpiar todo
+          localStorage.removeItem('quarto_current_booking_id');
           return { ...initialState };
         default:
           return state;
@@ -107,7 +117,7 @@ function appReducer(state, action) {
 // --- Main App Component ---
 const Calculator = () => {
   const [state, dispatch] = useReducer(appReducer, initialState);
-  const { items, updateItemQuantity, addItem, removeItem, clearAll } = useInventory();
+  const { items, updateItemQuantity, addItem, removeItem, clearAll, resetToDefaults } = useInventory();
 
   const [expandedCategories, setExpandedCategories] = useState(new Set());
   const [isAddFormExpanded, setIsAddFormExpanded] = useState(false);
@@ -122,19 +132,14 @@ const Calculator = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  function saveInventoryToLocal(items) {
-    localStorage.setItem('quarto_inventory', JSON.stringify(items));
-  }
-
   const handleAddItem = useCallback(
     (newItemData) => {
       const fullNewItem = addItem({ ...newItemData, isCustom: true });
-      const updatedItems = [...items, fullNewItem];
-      localStorage.setItem('quarto_inventory', JSON.stringify(updatedItems));
+      // ✅ Ya no guardamos manualmente - useInventory lo hace automáticamente
       setExpandedCategories((prev) => new Set(prev).add(fullNewItem.categoryId));
       setIsAddFormExpanded(false);
     },
-    [addItem, items]
+    [addItem]
   );
 
   const handleClearAll = useCallback(() => {
@@ -142,7 +147,8 @@ const Calculator = () => {
   }, []);
 
   const handleConfirmClear = () => {
-    clearAll();
+    console.log('[Calculator] 🔄 Resetear a items por defecto (modo manual)');
+    resetToDefaults(); // ✅ Volver a items iniciales en modo manual
     setSearchQuery('');
     setExpandedCategories(new Set());
     dispatch({ type: 'RESET_APP' });
@@ -209,7 +215,17 @@ const Calculator = () => {
       case 'home':
         return (
           <HomeScreen
-            onModeSelect={(mode) => dispatch({ type: 'SELECT_MODE', payload: mode })}
+            onModeSelect={(mode) => {
+              console.log('[Calculator] 🏠 Modo seleccionado:', mode);
+              // ✅ Limpiar inventario y booking al seleccionar cualquier modo
+              clearAll();
+              localStorage.removeItem('quarto_current_booking_id');
+              console.log('[Calculator] 🧹 Limpiado booking ID al cambiar de modo');
+              // Pequeño delay para asegurar que se limpie antes de cambiar de vista
+              setTimeout(() => {
+                dispatch({ type: 'SELECT_MODE', payload: mode });
+              }, 50);
+            }}
           />
         );
 
@@ -230,15 +246,27 @@ const Calculator = () => {
             analysisResult={state.aiResults}
             onBack={() => dispatch({ type: 'GO_BACK' })}
             onContinue={(formattedItems) => {
-              console.log('[Calculator] Items formateados desde IA:', formattedItems);
+              console.log('[Calculator] 📦 Items recibidos desde AIResults:', formattedItems);
+              console.log('[Calculator] 🧹 Cantidad de items recibidos:', formattedItems.length);
               
-              // Agregar todos los items al inventario
-              formattedItems.forEach(item => {
-                addItem(item);
-              });
+              // ✅ IMPORTANTE: Limpiar inventario antes de agregar items de IA
+              console.log('[Calculator] 🗑️ Limpiando inventario actual...');
+              clearAll();
               
-              // Navegar a logistics
-              dispatch({ type: 'NAVIGATE_TO', payload: 'logistics' });
+              // ✅ Usar setTimeout para asegurar que clearAll() termine antes de agregar
+              setTimeout(() => {
+                console.log('[Calculator] ➕ Agregando items al inventario...');
+                formattedItems.forEach((item, index) => {
+                  console.log(`[Calculator] Agregando item ${index + 1}:`, item.name, item.quantity, 'x', item.volume.toFixed(2), 'm³');
+                  addItem(item);
+                });
+                
+                console.log('[Calculator] ✅ Items agregados, navegando a logistics');
+                // ✅ Ya no guardamos manualmente - el useEffect en useInventory lo hace automáticamente
+                
+                // Navegar a logistics después de agregar items
+                dispatch({ type: 'NAVIGATE_TO', payload: 'logistics' });
+              }, 100); // Pequeño delay para que clearAll() se complete
             }}
             onAddMorePhotos={() => {
               dispatch({ type: 'NAVIGATE_TO', payload: 'aiPhotos' });
@@ -338,8 +366,11 @@ const Calculator = () => {
           <ConfirmationScreen
             customerName={state.customerName}
             onReset={() => {
-              clearAll();
-              dispatch({ type: 'RESET_APP' }); // ✅ mejor: vuelve al inicio
+              console.log('[Calculator] 🔄 Reset completo después de confirmación');
+              resetToDefaults(); // ✅ Volver a items iniciales
+              localStorage.removeItem('quarto_current_booking_id');
+              console.log('[Calculator] 🧹 Limpiado booking ID en reset');
+              dispatch({ type: 'RESET_APP' });
             }}
           />
         );
@@ -405,16 +436,30 @@ const Calculator = () => {
                           <div className="px-5 sm:px-6 pb-6 border-t border-border dark:border-slate-700 text-[#012E58]">
                             <div className="pt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-5">
                               {categoryItems.map((item) => {
+                                // ✅ Buscar cantidad en el state de inventory
                                 const inventoryItem = items.find((i) => i.id === item.id);
-                                const mergedItem = inventoryItem
-                                  ? { ...item, quantity: inventoryItem.quantity }
-                                  : { ...item, quantity: 0 };
-
+                                const currentQuantity = inventoryItem?.quantity ?? 0;
+                                
                                 return (
                                   <ItemCard
                                     key={item.id}
-                                    item={mergedItem}
-                                    onQuantityChange={updateItemQuantity}
+                                    item={{ ...item, quantity: currentQuantity }}
+                                    onQuantityChange={(id, newQuantity) => {
+                                      if (newQuantity > 0) {
+                                        // Si la cantidad es > 0, agregar o actualizar
+                                        const existingItem = items.find(i => i.id === id);
+                                        if (existingItem) {
+                                          updateItemQuantity(id, newQuantity);
+                                        } else {
+                                          // Agregar item de la DB al state
+                                          addItem({ ...item, quantity: newQuantity });
+                                        }
+                                      } else {
+                                        // Si la cantidad es 0, eliminar del state
+                                        updateItemQuantity(id, 0);
+                                        removeItem(id);
+                                      }
+                                    }}
                                     onRemove={removeItem}
                                   />
                                 );
@@ -459,7 +504,7 @@ const Calculator = () => {
                   totalItems={totalItems}
                   selectedItems={selectedItems}
                   onContinue={() => {
-                    saveInventoryToLocal(selectedItems);
+                    // ✅ Ya no guardamos manualmente - useInventory sincroniza automáticamente
                     dispatch({ type: 'NAVIGATE_TO', payload: 'logistics' });
                   }}
                   onClearAll={handleClearAll}
@@ -577,7 +622,7 @@ const Calculator = () => {
         console.error('Error en useEffect quoteId:', error);
       }
     })();
-  }, [dispatch, addItem, updateItemQuantity, clearAll]);
+  }, [dispatch, addItem, updateItemQuantity, clearAll, resetToDefaults]);
 
   return (
     <div className={`Calculator ${opacityClass} flex flex-col min-h-screen overflow-y-auto`}>

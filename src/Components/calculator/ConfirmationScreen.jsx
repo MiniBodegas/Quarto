@@ -1,6 +1,17 @@
 import { Button } from '../index';
+import { useEffect } from 'react';
 
 const ConfirmationScreen = ({ customerName, onReset }) => {
+  // ✅ Limpiar datos de sesión cuando llegue a confirmación
+  useEffect(() => {
+    console.log('[ConfirmationScreen] 🧹 Limpiando datos de sesión');
+    localStorage.removeItem('quarto_booking_form');
+    localStorage.removeItem('quarto_current_booking_id');
+    localStorage.removeItem('quarto_inventory');
+    localStorage.removeItem('quarto_logistics_method');
+    localStorage.removeItem('quarto_transport');
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <main className="container mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 flex-grow flex flex-col justify-center py-12">
