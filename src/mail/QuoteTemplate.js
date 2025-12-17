@@ -78,12 +78,6 @@ export default function QuoteTemplate(props) {
             React.createElement(Column, { style: { verticalAlign: "top" }},
               React.createElement(Heading, { style: { fontSize: "20px", margin: "0 0 6px 0", color: colors.dark }}, `Cotización para ${name}`),
               React.createElement(Text, { style: { margin: 0, color: colors.muted, fontSize: "13px" }}, `Fecha: ${date}`)
-            ),
-            React.createElement(Column, { style: { textAlign: "right", verticalAlign: "top" }},
-              website && React.createElement('a', {
-                href: `https://${website}`,
-                style: { background: colors.primary, color: "#fff", fontWeight: 700, borderRadius: "20px", padding: "8px 14px", textDecoration: "none", fontSize: "13px", display: "inline-block" }
-              }, website)
             )
           )
         ),
