@@ -497,6 +497,7 @@ const Calculator = () => {
       {renderScreen()}
       {showConfirmModal && (
         <ConfirmModal
+          open={showConfirmModal}
           title="¿Estás seguro de que quieres limpiar todo?"
           message="Esto eliminará todos los artículos de tu inventario."
           onConfirm={handleConfirmClear}
