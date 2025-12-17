@@ -16,6 +16,7 @@ import {
   Input,
   HomeScreen,
 } from '../../Components';
+import AIResultsScreen from '../../Components/calculator/AIResultsScreen';
 import { SearchIcon, ChevronDownIcon } from '../../Components/calculator/icons';
 import { InventoryPhotoScreen, PaymentScreen, AIPhotoScreen } from '../index';
 import { calculateStoragePrice } from '../../utils/pricing'; // ✅ NUEVO (para totalPriceCOP)
@@ -29,6 +30,7 @@ const initialState = {
   transportPrice: null,
   customerName: null,
   wompi: null,
+  aiResults: null, // ✅ Almacenar resultados de IA
 };
 
 function appReducer(state, action) {
@@ -45,6 +47,9 @@ function appReducer(state, action) {
 
     case 'NAVIGATE_TO':
       return { ...state, view: action.payload };
+
+    case 'SET_AI_RESULTS':
+      return { ...state, aiResults: action.payload, view: 'aiResults' };
 
     case 'SELECT_LOGISTICS':
       return {
@@ -68,10 +73,12 @@ function appReducer(state, action) {
           return { ...initialState, view: 'home' };
         case 'aiPhotos':
           return { ...initialState, view: 'home' };
+        case 'aiResults':
+          return { ...state, view: 'aiPhotos' };
         case 'inventoryPhotos':
           return { ...initialState, view: 'home' };
         case 'logistics':
-          return { ...state, view: state.mode === 'ai' ? 'aiPhotos' : 'calculator' };
+          return { ...state, view: state.mode === 'ai' ? 'aiResults' : 'calculator' };
         case 'transport':
           return { ...state, view: 'logistics', transportPrice: null };
         case 'finalSummary':
@@ -212,12 +219,29 @@ const Calculator = () => {
             onBack={() => dispatch({ type: 'GO_BACK' })}
             onContinue={(aiResults) => {
               console.log('[Calculator] Resultados de IA recibidos:', aiResults);
+              dispatch({ type: 'SET_AI_RESULTS', payload: aiResults });
+            }}
+          />
+        );
+
+      case 'aiResults':
+        return (
+          <AIResultsScreen
+            analysisResult={state.aiResults}
+            onBack={() => dispatch({ type: 'GO_BACK' })}
+            onContinue={(formattedItems) => {
+              console.log('[Calculator] Items formateados desde IA:', formattedItems);
               
-              // Aquí puedes procesar los resultados de la IA
-              // y convertirlos a items en el inventario
+              // Agregar todos los items al inventario
+              formattedItems.forEach(item => {
+                addItem(item);
+              });
               
-              // Por ahora solo navegamos a logistics
+              // Navegar a logistics
               dispatch({ type: 'NAVIGATE_TO', payload: 'logistics' });
+            }}
+            onAddMorePhotos={() => {
+              dispatch({ type: 'NAVIGATE_TO', payload: 'aiPhotos' });
             }}
           />
         );
