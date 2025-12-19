@@ -4,6 +4,8 @@ export { default as Auth } from './Auth';
 export { default as Portal } from './Portal';
 export { default as AdminPanel } from './AdminPanel';
 export { default as AdminLogin } from './AdminLogin';
+export { default as UserLogin } from './UserLogin';
+export { default as CompleteRegistration } from './CompleteRegistration';
 export { default as AccountStatement } from './AccountStatement';
 export { default as AuthorizedPersons } from './AuthorizedPersons';
 export { default as ContactInfo } from './ContactInfo';

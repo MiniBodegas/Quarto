@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Card from './ui/Card';
 import Button from './ui/Button';
 import Modal from './ui/Modal';
@@ -6,6 +7,7 @@ import { formatCurrency } from '../utils/formatters';
 import Input from './ui/Input';
 
 const InvoicesList = ({ invoices, onUpdateInvoice, onUpdateMultipleInvoices, addNotification }) => {
+  const navigate = useNavigate();
   const [filter, setFilter] = useState('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -78,6 +80,29 @@ const InvoicesList = ({ invoices, onUpdateInvoice, onUpdateMultipleInvoices, add
   const handlePayClick = (invoice) => {
     setSelectedInvoice(invoice);
     setIsModalOpen(true);
+  };
+  
+  // ✅ Nueva función para pagar con Wompi
+  const handlePayWithWompi = (invoice) => {
+    console.log('[Invoices] Iniciando pago con Wompi para factura:', invoice.id);
+    
+    // Construir datos para Wompi
+    const wompiData = {
+      reference: invoice.reference || `QUARTO_${invoice.id}_${Date.now()}`,
+      amountInCents: Math.round(invoice.amount * 100),
+      currency: 'COP',
+      bookingId: invoice.id,
+      meta: {
+        invoiceId: invoice.id,
+        invoiceNumber: invoice.invoice_number || invoice.id,
+      }
+    };
+    
+    // Guardar en localStorage para que PaymentScreen lo use
+    localStorage.setItem('quarto_pending_payment', JSON.stringify(wompiData));
+    
+    // Navegar a la pantalla de pago
+    navigate('/payment');
   };
 
   const handleConfirmPayment = async () => {
@@ -240,7 +265,14 @@ const InvoicesList = ({ invoices, onUpdateInvoice, onUpdateMultipleInvoices, add
                             Descargar
                         </Button>
                         {(invoice.status === 'unpaid' || invoice.status === 'overdue') && (
-                          <Button onClick={() => handlePayClick(invoice)}>Pagar Ahora</Button>
+                          <>
+                            <Button 
+                              onClick={() => handlePayWithWompi(invoice)}
+                              className="bg-green-600 hover:bg-green-700"
+                            >
+                              💳 Pagar con Wompi
+                            </Button>
+                          </>
                         )}
                     </div>
                   </td>
@@ -292,10 +324,10 @@ const InvoicesList = ({ invoices, onUpdateInvoice, onUpdateMultipleInvoices, add
                         </Button>
                         {(invoice.status === 'unpaid' || invoice.status === 'overdue') && (
                             <Button 
-                                onClick={() => handlePayClick(invoice)} 
-                                className="flex-1"
+                                onClick={() => handlePayWithWompi(invoice)} 
+                                className="flex-1 bg-green-600 hover:bg-green-700"
                             >
-                                Pagar Ahora
+                                💳 Pagar
                             </Button>
                         )}
                     </div>

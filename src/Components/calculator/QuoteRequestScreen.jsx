@@ -184,20 +184,52 @@ const QuoteRequestScreen = ({
 
       // 4) Inserta inventory ligado a la cotización
       if (selectedItems?.length) {
-        const payload = selectedItems.map((item) => ({
-          quote_id: quoteId,
-          item_id: null,
-          name: item.name,
-          quantity: Number(item.quantity ?? 1),
-          volume: Number(item.volume ?? 0),
-          is_custom: !!item.isCustom,
-          short_code: generateShortCode(),
-        }));
-        const { error: invErr } = await supabase.from('inventory').insert(payload);
-        if (invErr) {
-          setIsLoading(false);
-          alert('Error al guardar los items: ' + invErr.message);
-          return;
+        for (const item of selectedItems) {
+          let customItemId = null;
+
+          // Si es custom, primero guardar en custom_items
+          if (item.isCustom) {
+            const { data: customData, error: customError } = await supabase
+              .from('custom_items')
+              .insert([{
+                name: item.name,
+                width: item.width || 0,
+                height: item.height || 0,
+                depth: item.depth || 0,
+                volume: item.volume || 0,
+                user_id: userId,
+              }])
+              .select()
+              .single();
+
+            if (customError) {
+              console.warn('[Quote] Error guardando custom_item:', customError);
+              setIsLoading(false);
+              alert('Error al guardar item personalizado: ' + customError.message);
+              return;
+            }
+
+            customItemId = customData.id;
+          }
+
+          // Guardar en inventory
+          const inventoryPayload = {
+            quote_id: quoteId,
+            item_id: !item.isCustom && item.id ? item.id : null,
+            custom_item_id: customItemId,
+            name: item.name,
+            quantity: Number(item.quantity ?? 1),
+            volume: Number(item.volume ?? 0),
+            is_custom: !!item.isCustom,
+            short_code: generateShortCode(),
+          };
+
+          const { error: invErr } = await supabase.from('inventory').insert([inventoryPayload]);
+          if (invErr) {
+            setIsLoading(false);
+            alert('Error al guardar el inventario: ' + invErr.message);
+            return;
+          }
         }
       }
 

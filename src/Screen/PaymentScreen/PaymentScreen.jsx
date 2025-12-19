@@ -1,12 +1,14 @@
 // Payment Screen con Verificación Automática Silenciosa
 
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { WompiPayButton, Button } from "../../Components";
 import { supabase } from "../../supabase";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 const PaymentScreen = ({ wompi, onBack, onPaymentSuccess }) => {
+  const navigate = useNavigate();
   const [signature, setSignature] = useState(null);
   const [loadingSig, setLoadingSig] = useState(false);
   const [sigError, setSigError] = useState("");
@@ -103,10 +105,15 @@ const PaymentScreen = ({ wompi, onBack, onPaymentSuccess }) => {
           // Limpiar interval
           clearInterval(intervalId);
           
-          // Llamar callback de éxito con toda la info
+          // Llamar callback de éxito si existe
           if (onPaymentSuccess) {
             onPaymentSuccess(booking);
           }
+          
+          // Redirigir a la pantalla de éxito con el booking_id
+          setTimeout(() => {
+            navigate(`/payment-success?booking_id=${booking.id}`);
+          }, 1000);
         }
       } catch (err) {
         console.error("[Payment] Error en verificación automática:", err);

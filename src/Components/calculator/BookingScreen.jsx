@@ -290,27 +290,25 @@ const BookingScreen = ({
         console.log("[Booking] 🆕 Nuevo booking creado:", bookingId);
       }
 
-      // 2.1) Construir orden Wompi (para widget)
-      const wompiOrder = {
-        reference: `QUARTO_${bookingId}_${Date.now()}`,
-        amountInCents: Math.round(totalToPayCOP * 100), // COP → centavos
-        currency: "COP",
-        bookingId,
-        meta: {
-          name,
-          email,
-          phone,
-        },
-      };
+      // 2.1) Generar token interno único para este booking
+      const internalToken = `TOKEN_${bookingId}_${Date.now()}_${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+      
+      // 2.2) Generar referencia Wompi (se usará cuando el usuario pague)
+      const wompiReference = `QUARTO_${bookingId}_${Date.now()}`;
 
-      // 2.2) Actualizar booking con estado de pago pendiente y referencia Wompi
+      // 2.3) Actualizar booking con estado pendiente, token y monto a pagar
       await supabase
         .from("bookings")
         .update({
           payment_status: "PENDING",
-          wompi_reference: wompiOrder.reference,
+          wompi_reference: wompiReference,
+          internal_token: internalToken,
+          amount_total: totalToPayCOP,
+          amount_monthly: baseMonthlyCOP,
         })
         .eq("id", bookingId);
+      
+      console.log("[Booking] ✅ Token interno generado:", internalToken);
 
       // 3) Si hay transport asociado, linkear booking_id
       if (transport?.id) {
@@ -328,13 +326,19 @@ const BookingScreen = ({
       const quoteId = new URLSearchParams(window.location.search).get("quoteId");
 
       if (quoteId) {
+        // ✅ Actualizar inventory de la cotización para asociarlo a la reserva
+        // Mantenemos el quote_id para trazabilidad y agregamos el booking_id
         const { error: updateInventoryError } = await supabase
           .from("inventory")
-          .update({ booking_id: bookingId, quote_id: null })
+          .update({ booking_id: bookingId })
           .eq("quote_id", quoteId)
           .is("booking_id", null);
 
-        if (updateInventoryError) console.warn("[Booking] updateInventoryError:", updateInventoryError);
+        if (updateInventoryError) {
+          console.warn("[Booking] updateInventoryError:", updateInventoryError);
+        } else {
+          console.log("[Booking] ✅ Inventario de cotización actualizado con booking_id");
+        }
       } else {
         // ✅ Verificar si ya hay inventario asociado a este booking
         const { data: existingInventory } = await supabase
@@ -397,22 +401,39 @@ const BookingScreen = ({
         }
       }
 
-      // 5) Guardar contacto
-      localStorage.setItem("quarto_booking_contact", JSON.stringify({ name, email, phone }));
+      // 5) Guardar contacto y token para acceso posterior
+      localStorage.setItem("quarto_booking_contact", JSON.stringify({ 
+        name, 
+        email, 
+        phone,
+        bookingId,
+        internalToken 
+      }));
 
-      // 6) Ya tenemos wompiOrder creado arriba (después de insertar booking)
-      console.log("[Booking] wompiOrder:", wompiOrder);
-
-      // ✅ NO limpiar el formulario aquí porque el usuario va a ir a PaymentScreen
-      // Solo se limpiará cuando confirme el pago exitosamente
+      // 6) Mostrar confirmación exitosa
+      console.log("[Booking] ✅ Reserva creada exitosamente");
+      console.log("[Booking] 📋 Booking ID:", bookingId);
+      console.log("[Booking] 🔑 Token:", internalToken);
       
-      if (!onGoToPayment) {
-        console.error("[Booking] onGoToPayment no está conectado en Calculator.");
-        alert("No pudimos continuar a pagos (falta conectar onGoToPayment).");
-        return;
-      }
-
-      onGoToPayment(wompiOrder);
+      // ✅ Mostrar mensaje de éxito y dar opciones al usuario
+      alert(
+        `¡Reserva confirmada! 🎉\n\n` +
+        `Tu reserva ha sido creada exitosamente.\n` +
+        `ID: ${bookingId.substring(0, 8)}...\n\n` +
+        `Puedes:\n` +
+        `1. Crear una cuenta para gestionar tu reserva\n` +
+        `2. Realizar el pago desde tu perfil cuando estés listo\n\n` +
+        `Te redirigiremos al registro...`
+      );
+      
+      // Limpiar formulario y datos temporales
+      localStorage.removeItem('quarto_booking_form');
+      localStorage.removeItem('quarto_inventory');
+      localStorage.removeItem('quarto_transport');
+      localStorage.removeItem('quarto_logistics_method');
+      
+      // Redirigir al registro/login con el bookingId
+      window.location.href = `/payment-success?booking_id=${bookingId}`;
 
     } catch (err) {
       console.error("[Booking] Error inesperado:", err);
