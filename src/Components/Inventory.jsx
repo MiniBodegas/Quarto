@@ -7,6 +7,9 @@ import Spinner from './ui/Spinner';
 import { toProperCase } from '../utils/formatters';
 
 const Inventory = ({ items, logs, storageUnits, onMovement }) => {
+  // Detectar si es modo solo lectura (usuarios normales sin permisos de edición)
+  const isReadOnly = !onMovement;
+
   // Initialize with the first unit if available
   const [selectedUnitId, setSelectedUnitId] = useState(() => {
       if (storageUnits.length > 0) return storageUnits[0].id;
@@ -213,9 +216,11 @@ const Inventory = ({ items, logs, storageUnits, onMovement }) => {
                         </>
                     )}
                 </div>
-                <Button onClick={handleOpenCreate} className="shadow-sm">
-                    <span className="material-symbols-outlined text-sm mr-1">add</span> Agregar Artículo
-                </Button>
+                {!isReadOnly && (
+                  <Button onClick={handleOpenCreate} className="shadow-sm">
+                      <span className="material-symbols-outlined text-sm mr-1">add</span> Agregar Artículo
+                  </Button>
+                )}
             </div>
 
             <Card className="overflow-hidden">
@@ -223,15 +228,27 @@ const Inventory = ({ items, logs, storageUnits, onMovement }) => {
                     <table className="min-w-full divide-y divide-border">
                         <thead className="bg-gray-50">
                             <tr>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider w-1/3">Artículo</th>
-                                <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider hidden sm:table-cell w-1/3">Detalles</th>
-                                <th className="px-4 py-3 text-center text-xs font-medium text-text-secondary uppercase tracking-wider w-1/6">Cantidad</th>
-                                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider w-1/6">Acciones</th>
+                                {isReadOnly && (
+                                  <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Código</th>
+                                )}
+                                <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Artículo</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider hidden sm:table-cell">Detalles</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Cantidad</th>
+                                {!isReadOnly && (
+                                  <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Acciones</th>
+                                )}
                             </tr>
                         </thead>
                         <tbody className="bg-card divide-y divide-border">
                             {filteredItems.length > 0 ? filteredItems.map(item => (
                                 <tr key={item.id} className="hover:bg-gray-50 group">
+                                    {isReadOnly && (
+                                      <td className="px-4 py-4 whitespace-nowrap">
+                                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-mono font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+                                          {item.short_code || 'N/A'}
+                                        </span>
+                                      </td>
+                                    )}
                                     <td className="px-4 py-4 whitespace-nowrap">
                                         <div className="font-medium text-text-primary text-base">{item.name}</div>
                                         {item.category && <div className="text-xs text-text-secondary sm:hidden">{item.category}</div>}
@@ -244,44 +261,56 @@ const Inventory = ({ items, logs, storageUnits, onMovement }) => {
                                         )}
                                         <div className="text-sm text-text-secondary truncate max-w-[200px]">{item.description || '-'}</div>
                                     </td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-center align-middle">
-                                        <div className="flex items-center justify-center space-x-3">
-                                            <button 
-                                                onClick={() => handleQuickAdjust(item, -1)} 
-                                                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center disabled:opacity-50 transition-colors" 
-                                                disabled={item.quantity <= 0}
-                                                title="Restar 1"
-                                            >
-                                                <span className="material-symbols-outlined text-sm">remove</span>
-                                            </button>
-                                            <span className="font-bold text-text-primary text-lg w-8 text-center">{item.quantity}</span>
-                                            <button 
-                                                onClick={() => handleQuickAdjust(item, 1)} 
-                                                className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition-colors"
-                                                title="Sumar 1"
-                                            >
-                                                <span className="material-symbols-outlined text-sm">add</span>
-                                            </button>
-                                        </div>
+                                    <td className="px-4 py-4 whitespace-nowrap align-middle">
+                                        {isReadOnly ? (
+                                          <span className="font-bold text-text-primary text-base">{item.quantity}</span>
+                                        ) : (
+                                          <div className="flex items-center space-x-3">
+                                              <button 
+                                                  onClick={() => handleQuickAdjust(item, -1)} 
+                                                  className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center disabled:opacity-50 transition-colors" 
+                                                  disabled={item.quantity <= 0}
+                                                  title="Restar 1"
+                                              >
+                                                  <span className="material-symbols-outlined text-sm">remove</span>
+                                              </button>
+                                              <span className="font-bold text-text-primary text-lg w-8 text-center">{item.quantity}</span>
+                                              <button 
+                                                  onClick={() => handleQuickAdjust(item, 1)} 
+                                                  className="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center transition-colors"
+                                                  title="Sumar 1"
+                                              >
+                                                  <span className="material-symbols-outlined text-sm">add</span>
+                                              </button>
+                                          </div>
+                                        )}
                                     </td>
-                                    <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium align-middle">
-                                        <div className="flex justify-end items-center gap-1">
-                                            <button onClick={() => handleOpenEdit(item)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors" title="Editar">
-                                                <span className="material-symbols-outlined text-xl">edit</span>
-                                            </button>
-                                            <button onClick={() => handleOpenDelete(item)} className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors" title="Eliminar">
-                                                <span className="material-symbols-outlined text-xl">delete</span>
-                                            </button>
-                                        </div>
-                                    </td>
+                                    {!isReadOnly && (
+                                      <td className="px-4 py-4 whitespace-nowrap text-right text-sm font-medium align-middle">
+                                          <div className="flex justify-end items-center gap-1">
+                                              <button onClick={() => handleOpenEdit(item)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors" title="Editar">
+                                                  <span className="material-symbols-outlined text-xl">edit</span>
+                                              </button>
+                                              <button onClick={() => handleOpenDelete(item)} className="p-2 text-red-600 hover:bg-red-50 rounded-full transition-colors" title="Eliminar">
+                                                  <span className="material-symbols-outlined text-xl">delete</span>
+                                              </button>
+                                          </div>
+                                      </td>
+                                    )}
                                 </tr>
                             )) : (
                                 <tr>
-                                    <td colSpan={4} className="px-6 py-12 text-center text-text-secondary">
+                                    <td colSpan={isReadOnly ? 4 : 4} className="px-6 py-12 text-center text-text-secondary">
                                         <div className="flex flex-col items-center justify-center">
                                             <span className="material-symbols-outlined text-4xl mb-2 opacity-30">inventory_2</span>
-                                            <p className="mb-4 text-lg">Esta bodega está vacía.</p>
-                                            <Button variant="secondary" onClick={handleOpenCreate}>Agregar mi primer artículo</Button>
+                                            <p className="mb-4 text-lg">
+                                              {isReadOnly 
+                                                ? 'No hay objetos registrados en esta bodega.' 
+                                                : 'Esta bodega está vacía.'}
+                                            </p>
+                                            {!isReadOnly && (
+                                              <Button variant="secondary" onClick={handleOpenCreate}>Agregar mi primer artículo</Button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>

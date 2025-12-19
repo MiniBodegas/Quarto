@@ -5,23 +5,22 @@ import AuthorizedPersons from './AuthorizedPersons';
 import ContactInfo from './ContactInfo';
 import ManageUsers from './ManageUsers';
 import Inventory from './Inventory';
-import { QUARTO_LOGO_BASE64 } from '../utils/constants';
 import Spinner from './ui/Spinner';
 
 const Header = ({ onToggleSidebar, userName }) => (
-    <header className="bg-card/80 backdrop-blur-sm sticky top-0 z-20 flex items-center justify-between p-4 h-20 border-b border-border">
+    <header className="bg-card/80 backdrop-blur-sm sticky top-0 z-20 flex items-center justify-between p-4 h-16 border-b border-border">
         <div className="flex items-center gap-4">
             <button onClick={onToggleSidebar} className="p-2 rounded-full hover:bg-gray-100 md:hidden" aria-label="Abrir menú de navegación">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
             </button>
-            <img src={QUARTO_LOGO_BASE64} alt="Quarto Logo" className="h-12 w-auto" />
+            <h1 className="text-xl font-bold text-text-primary hidden sm:block">Portal Quarto</h1>
         </div>
-        <div className="flex items-center">
-            <span className="mr-3 font-medium text-text-primary hidden sm:inline">{userName.split(' ')[0]}</span>
-            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center font-bold text-white">
-                {userName.charAt(0)}
+        <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-text-primary hidden sm:inline">{userName}</span>
+            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center font-bold text-white text-sm">
+                {userName.charAt(0).toUpperCase()}
             </div>
         </div>
     </header>
@@ -38,7 +37,7 @@ const Sidebar = ({ currentView, setView, onSignOut, isOpen, companyType }) => {
   ];
 
   return (
-    <aside className={`fixed top-20 bottom-0 left-0 z-40 w-64 bg-card border-r border-border flex-col transform transition-transform duration-300 md:relative md:top-auto md:bottom-auto md:translate-x-0 md:flex ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+    <aside className={`fixed top-16 bottom-0 left-0 z-40 w-64 bg-card border-r border-border flex-col transform transition-transform duration-300 md:relative md:top-auto md:bottom-auto md:translate-x-0 md:flex ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
       <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
         {navItems.map(item => {
           if (item.companyOnly && companyType !== 'company') {
@@ -109,9 +108,9 @@ const Portal = ({
                   items={userInventory} 
                   logs={userInventoryLogs} 
                   storageUnits={userStorageUnits}
-                  onMovement={(unitId, itemData, qty, action, notes) => 
+                  onMovement={onInventoryMovement ? (unitId, itemData, qty, action, notes) => 
                     onInventoryMovement(company.id, unitId, itemData, qty, action, loginUser.name, notes)
-                  }
+                  : undefined}
                 />;
       case 'invoices':
         return <InvoicesList invoices={invoices} onUpdateInvoice={onUpdateInvoice} onUpdateMultipleInvoices={onUpdateMultipleInvoices} addNotification={addNotification} />;
@@ -135,12 +134,12 @@ const Portal = ({
       )}
 
       <div 
-        className="h-screen flex flex-col bg-background text-text-primary"
+        className="min-h-screen h-screen flex flex-col bg-background text-text-primary overflow-hidden"
         style={{ visibility: isReady ? 'visible' : 'hidden' }}
       >
         <Header onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} userName={loginUser.name} />
 
-        <div className="relative flex-1 md:flex">
+        <div className="flex-1 flex overflow-hidden">
           {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"></div>}
 
           <Sidebar 
@@ -151,7 +150,7 @@ const Portal = ({
             companyType={company.type}
           />
           
-          <main className="flex-1 overflow-y-auto bg-background p-4 sm:p-6 lg:p-8">
+          <main className="flex-1 overflow-y-auto bg-background p-6 md:p-8">
             {renderView()}
           </main>
         </div>

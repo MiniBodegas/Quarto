@@ -247,6 +247,7 @@ const UserScreen = () => {
       
       if (bookings.length > 0) {
         const bookingIds = bookings.map(b => b.id);
+        console.log("[UserScreen] 🔍 Buscando inventario para bookings:", bookingIds);
         
         const { data: inventoryData, error: inventoryError } = await supabase
           .from('inventory')
@@ -255,19 +256,52 @@ const UserScreen = () => {
           .order('created_at', { ascending: false });
 
         if (!inventoryError && inventoryData) {
-          console.log("[UserScreen] Inventario encontrado:", inventoryData.length, "items");
+          console.log("[UserScreen] ✅ Inventario encontrado:", inventoryData.length, "items");
+          console.log("[UserScreen] 📦 Datos del inventario:", inventoryData);
           inventory = inventoryData;
         } else if (inventoryError) {
-          console.error("[UserScreen] Error cargando inventario:", inventoryError);
+          console.error("[UserScreen] ❌ Error cargando inventario:", inventoryError);
+        } else {
+          console.log("[UserScreen] ℹ️ No se encontró inventario para estos bookings");
         }
+      } else {
+        console.log("[UserScreen] ⚠️ No hay bookings, no se puede cargar inventario");
       }
 
-      console.log("[UserScreen] Total inventario encontrado:", inventory.length);
+      console.log("[UserScreen] 📊 Total inventario encontrado:", inventory.length);
       
       if (inventory.length > 0) {
+        console.log("[UserScreen] ✅ Estableciendo inventario en el estado:", inventory);
         setUserInventory(inventory);
       } else {
+        console.log("[UserScreen] ⚠️ No hay inventario para mostrar");
         setUserInventory([]);
+      }
+
+      // Crear unidades de almacenamiento virtuales basadas en los bookings
+      // Cada booking tiene su propia "unidad" de almacenamiento
+      const storageUnits = bookings.map((booking, index) => ({
+        id: booking.id,
+        number: `${index + 1}`,
+        name: `Bodega ${index + 1}`,
+        booking_id: booking.id,
+        location: booking.storage_location || 'Ubicación principal',
+        size: booking.total_volume || 0,
+      }));
+
+      console.log("[UserScreen] 📦 Unidades de almacenamiento creadas:", storageUnits.length);
+      setUserStorageUnits(storageUnits);
+
+      // Asociar inventario a las unidades de almacenamiento
+      // Cada item del inventario pertenece a una unidad (booking)
+      if (inventory.length > 0) {
+        const inventoryWithUnits = inventory.map(item => ({
+          ...item,
+          storage_unit_id: item.booking_id, // Usar booking_id como storage_unit_id
+        }));
+        
+        console.log("[UserScreen] 📦 Inventario asociado a unidades:", inventoryWithUnits);
+        setUserInventory(inventoryWithUnits);
       }
 
       // TODO: Cargar personas autorizadas cuando se implemente la tabla
@@ -276,9 +310,6 @@ const UserScreen = () => {
 
       // TODO: Cargar logs de inventario cuando se implemente la tabla
       setUserInventoryLogs([]);
-
-      // TODO: Cargar unidades de almacenamiento cuando se implemente la tabla
-      setUserStorageUnits([]);
 
       // Para usuarios individuales, no hay otros usuarios en la "empresa"
       setCompanyUsers([{
@@ -410,25 +441,6 @@ const UserScreen = () => {
     addNotification('info', 'Esta función solo está disponible para empresas');
   }, [addNotification]);
 
-  const handleInventoryMovement = useCallback(async (companyId, unitId, itemData, qty, action, userName, notes) => {
-    try {
-      // TODO: Implementar cuando se cree la tabla de movimientos de inventario
-      console.log("[UserScreen] TODO: Movimiento de inventario", {
-        companyId,
-        unitId,
-        itemData,
-        qty,
-        action,
-        userName,
-        notes
-      });
-      addNotification('info', 'Función de movimientos en desarrollo');
-    } catch (error) {
-      console.error("[UserScreen] Error en movimiento de inventario:", error);
-      addNotification('error', 'Error al registrar el movimiento');
-    }
-  }, [addNotification]);
-
   // ============================================
   // RENDER
   // ============================================
@@ -477,7 +489,7 @@ const UserScreen = () => {
       onRemovePerson={handleRemovePerson}
       onAddUser={handleAddUser}
       onRemoveUser={handleRemoveUser}
-      onInventoryMovement={handleInventoryMovement}
+      // onInventoryMovement NO se pasa para usuarios (modo solo lectura)
       isRecentLogin={isRecentLogin}
       addNotification={addNotification}
     />
