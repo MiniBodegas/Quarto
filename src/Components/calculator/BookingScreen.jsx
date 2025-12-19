@@ -178,6 +178,13 @@ const BookingScreen = ({
     // ✅ Tu precio mensual por volumen viene de afuera (FinalSummary)
     const baseMonthlyCOP = Number(totalPriceCOP ?? 0);
 
+    // ✅ Validar que baseMonthlyCOP no sea 0
+    if (baseMonthlyCOP === 0) {
+      console.error("[Booking] ⚠️ ERROR: totalPriceCOP es 0 o undefined");
+      alert("Error: No se pudo calcular el precio. Por favor, verifica tu cotización.");
+      return;
+    }
+
     // ✅ Define qué cobras hoy:
     // Opción A (recomendada para tu UI): primer pago = mensualidad + transporte (si aplica)
     const totalToPayCOP = baseMonthlyCOP + transportCOP;
@@ -268,7 +275,12 @@ const BookingScreen = ({
           total_items: finalTotalItems,
           logistics_method: finalLogisticsMethod,
           transport_price: transportCOP,
+          amount_total: totalToPayCOP, // ✅ Guardar precio total desde el inicio
+          amount_monthly: baseMonthlyCOP, // ✅ Guardar precio mensual desde el inicio
+          payment_status: "PENDING", // ✅ Estado inicial
         };
+
+        console.log("[Booking] 📝 Creando nuevo booking con payload:", bookingPayload);
 
         const { data: newBooking, error: bookingError } = await supabase
           .from("bookings")
@@ -297,7 +309,13 @@ const BookingScreen = ({
       const wompiReference = `QUARTO_${bookingId}_${Date.now()}`;
 
       // 2.3) Actualizar booking con estado pendiente, token y monto a pagar
-      await supabase
+      console.log("[Booking] 💰 Guardando precios:", {
+        amount_total: totalToPayCOP,
+        amount_monthly: baseMonthlyCOP,
+        transport_price: transportCOP
+      });
+
+      const { error: updateError } = await supabase
         .from("bookings")
         .update({
           payment_status: "PENDING",
@@ -308,7 +326,14 @@ const BookingScreen = ({
         })
         .eq("id", bookingId);
       
+      if (updateError) {
+        console.error("[Booking] Error actualizando booking:", updateError);
+        alert("Error al actualizar la reserva: " + updateError.message);
+        return;
+      }
+      
       console.log("[Booking] ✅ Token interno generado:", internalToken);
+      console.log("[Booking] ✅ Precios guardados correctamente");
 
       // 3) Si hay transport asociado, linkear booking_id
       if (transport?.id) {

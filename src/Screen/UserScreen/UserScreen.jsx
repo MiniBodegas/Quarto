@@ -57,17 +57,48 @@ const UserScreen = () => {
         console.log("[UserScreen] Usuario autenticado:", userEmail);
 
         // 2. Obtener datos del usuario desde la tabla users
-        const { data: userData, error: userError } = await supabase
+        let userData = null;
+        const { data: existingUser, error: userError } = await supabase
           .from('users')
           .select('*')
           .eq('email', userEmail)
-          .single();
+          .maybeSingle();
 
-        if (userError || !userData) {
-          console.error("[UserScreen] Error obteniendo usuario:", userError);
-          addNotification('error', 'No se pudieron cargar los datos del usuario');
+        if (userError) {
+          console.error("[UserScreen] Error consultando usuario:", userError);
+          addNotification('error', 'Error al consultar los datos del usuario');
           navigate('/login');
           return;
+        }
+
+        if (!existingUser) {
+          // Usuario no existe en la tabla users, crearlo
+          console.log("[UserScreen] Usuario no existe en tabla users, creando...");
+          
+          const { data: newUser, error: createError } = await supabase
+            .from('users')
+            .insert([{
+              id: session.user.id,
+              email: userEmail,
+              name: session.user.user_metadata?.name || userEmail.split('@')[0],
+              phone: session.user.user_metadata?.phone || null,
+              created_at: new Date().toISOString(),
+            }])
+            .select()
+            .single();
+
+          if (createError) {
+            console.error("[UserScreen] Error creando usuario:", createError);
+            addNotification('error', 'Error al crear el usuario en la base de datos');
+            navigate('/login');
+            return;
+          }
+
+          userData = newUser;
+          console.log("[UserScreen] ✅ Usuario creado en tabla users");
+        } else {
+          userData = existingUser;
+          console.log("[UserScreen] ✅ Usuario encontrado en tabla users");
         }
 
         // Configurar perfil del usuario
@@ -116,36 +147,127 @@ const UserScreen = () => {
     try {
       console.log("[UserScreen] Cargando datos para usuario:", userId);
 
-      // Cargar bookings (facturas)
-      const { data: bookings, error: bookingsError } = await supabase
+      // Obtener el email del usuario
+      const { data: { user } } = await supabase.auth.getUser();
+      const userEmail = user?.email;
+
+      // Cargar bookings (facturas) - buscar por user_id O por email
+      let bookings = [];
+      
+      // 1. Buscar por user_id (bookings ya asociados)
+      const { data: bookingsByUserId, error: bookingsError1 } = await supabase
         .from('bookings')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
-      if (!bookingsError && bookings) {
-        // Mapear bookings a formato de facturas
-        const invoices = bookings.map(booking => ({
-          id: booking.id,
-          company_id: userId,
-          amount: booking.amount_total || 0,
-          status: booking.payment_status === 'APPROVED' ? 'paid' : 'pending',
-          date: booking.created_at,
-          reference: booking.wompi_reference,
-          description: `Servicio de almacenamiento - ${booking.storage_months || 1} mes(es)`,
-        }));
-        setUserInvoices(invoices);
+      if (!bookingsError1 && bookingsByUserId) {
+        bookings = [...bookingsByUserId];
       }
 
-      // Cargar inventario
-      const { data: inventory, error: inventoryError } = await supabase
-        .from('inventory')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
+      // 2. Buscar por email (bookings sin user_id pero con el mismo email)
+      if (userEmail) {
+        const { data: bookingsByEmail, error: bookingsError2 } = await supabase
+          .from('bookings')
+          .select('*')
+          .eq('email', userEmail)
+          .is('user_id', null)
+          .order('created_at', { ascending: false });
 
-      if (!inventoryError && inventory) {
+        if (!bookingsError2 && bookingsByEmail && bookingsByEmail.length > 0) {
+          console.log("[UserScreen] Bookings encontrados por email:", bookingsByEmail.length);
+          
+          // Asociar estos bookings al user_id
+          const bookingIds = bookingsByEmail.map(b => b.id);
+          await supabase
+            .from('bookings')
+            .update({ user_id: userId })
+            .in('id', bookingIds);
+          
+          bookings = [...bookings, ...bookingsByEmail];
+        }
+      }
+
+      console.log("[UserScreen] Total bookings encontrados:", bookings.length);
+
+      if (bookings.length > 0) {
+        console.log("[UserScreen] Bookings obtenidos:", bookings);
+        
+        // Mapear bookings a formato de facturas
+        const invoices = bookings.map(booking => {
+          const issueDate = booking.created_at ? new Date(booking.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+          const dueDate = booking.due_date 
+            ? new Date(booking.due_date).toISOString().split('T')[0]
+            : new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // +15 días por defecto
+          
+          // Determinar estado correcto
+          let status = 'unpaid'; // Por defecto
+          if (booking.payment_status === 'APPROVED') {
+            status = 'paid';
+          } else if (dueDate < new Date().toISOString().split('T')[0]) {
+            status = 'overdue'; // Vencida
+          }
+          
+          // ✅ Convertir amount_total a número y validar
+          const amountTotal = Number(booking.amount_total) || 0;
+          const amountMonthly = Number(booking.amount_monthly) || 0;
+          
+          console.log(`[UserScreen] Booking ${booking.id}:`, {
+            amount_total: booking.amount_total,
+            amount_monthly: booking.amount_monthly,
+            amountTotal,
+            amountMonthly
+          });
+          
+          return {
+            id: booking.id,
+            company_id: userId,
+            invoice_number: booking.invoice_number || `INV-${booking.id.substring(0, 8)}`,
+            issue_date: issueDate,
+            due_date: dueDate,
+            amount: amountTotal,
+            amount_monthly: amountMonthly,
+            status: status,
+            reference: booking.wompi_reference || `QUARTO_${booking.id}`,
+            description: `Servicio de almacenamiento${booking.logistics_method ? ` - ${booking.logistics_method}` : ''}`,
+            payment_status: booking.payment_status,
+            transport_price: Number(booking.transport_price) || 0,
+          };
+        });
+        
+        console.log("[UserScreen] Facturas mapeadas:", invoices);
+        setUserInvoices(invoices);
+      } else {
+        console.log("[UserScreen] No se encontraron bookings");
+        setUserInvoices([]);
+      }
+
+      // Cargar inventario - buscar por booking_id de los bookings del usuario
+      let inventory = [];
+      
+      if (bookings.length > 0) {
+        const bookingIds = bookings.map(b => b.id);
+        
+        const { data: inventoryData, error: inventoryError } = await supabase
+          .from('inventory')
+          .select('*')
+          .in('booking_id', bookingIds)
+          .order('created_at', { ascending: false });
+
+        if (!inventoryError && inventoryData) {
+          console.log("[UserScreen] Inventario encontrado:", inventoryData.length, "items");
+          inventory = inventoryData;
+        } else if (inventoryError) {
+          console.error("[UserScreen] Error cargando inventario:", inventoryError);
+        }
+      }
+
+      console.log("[UserScreen] Total inventario encontrado:", inventory.length);
+      
+      if (inventory.length > 0) {
         setUserInventory(inventory);
+      } else {
+        setUserInventory([]);
       }
 
       // TODO: Cargar personas autorizadas cuando se implemente la tabla
