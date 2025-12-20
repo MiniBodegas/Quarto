@@ -54,14 +54,16 @@ const UserScreen = () => {
         }
 
         const userEmail = session.user.email;
-        console.log("[UserScreen] Usuario autenticado:", userEmail);
+        const authId = session.user.id; // ✅ LA VERDAD ABSOLUTA
+        console.log("[UserScreen] Usuario autenticado:", userEmail, "ID:", authId);
 
         // 2. Obtener datos del usuario desde la tabla users
+        // ✅ BUSCAR POR ID, NO POR EMAIL (evita registros viejos)
         let userData = null;
         const { data: existingUser, error: userError } = await supabase
           .from('users')
           .select('*')
-          .eq('email', userEmail)
+          .eq('id', authId) // ✅ Buscar por auth.uid()
           .maybeSingle();
 
         if (userError) {
@@ -304,9 +306,30 @@ const UserScreen = () => {
         setUserInventory(inventoryWithUnits);
       }
 
-      // TODO: Cargar personas autorizadas cuando se implemente la tabla
-      // Por ahora dejamos vacío
-      setAuthorizedPersons([]);
+      // Cargar personas autorizadas del usuario
+      // ✅ USAR AUTH.UID() PARA CARGAR TAMBIÉN
+      const { data: { session } } = await supabase.auth.getSession();
+      const authId = session?.user?.id;
+      
+      console.log("[UserScreen] 👥 Cargando personas autorizadas para auth.uid:", authId);
+      
+      const { data: authorizedData, error: authorizedError } = await supabase
+        .from('authorized_persons')
+        .select('*')
+        .eq('user_id', authId) // ✅ Usar auth.uid()
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      if (!authorizedError && authorizedData) {
+        console.log("[UserScreen] ✅ Personas autorizadas encontradas:", authorizedData.length);
+        setAuthorizedPersons(authorizedData);
+      } else if (authorizedError) {
+        console.error("[UserScreen] ❌ Error cargando personas autorizadas:", authorizedError);
+        setAuthorizedPersons([]);
+      } else {
+        console.log("[UserScreen] ℹ️ No hay personas autorizadas registradas");
+        setAuthorizedPersons([]);
+      }
 
       // TODO: Cargar logs de inventario cuando se implemente la tabla
       setUserInventoryLogs([]);
@@ -418,15 +441,92 @@ const UserScreen = () => {
   }, [loggedInCompanyProfile, addNotification]);
 
   const handleAddPerson = useCallback(async (name, documentId) => {
-    // TODO: Implementar cuando se cree la tabla de personas autorizadas
-    console.log("[UserScreen] TODO: Agregar persona autorizada", { name, documentId });
-    addNotification('info', 'Función en desarrollo');
-  }, [addNotification]);
+    try {
+      // Validar datos
+      if (!name || !documentId) {
+        addNotification('error', 'Por favor completa todos los campos');
+        return;
+      }
+
+      // ✅ OBTENER AUTH.UID() - LA VERDAD ABSOLUTA
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        addNotification('error', 'No hay sesión activa');
+        navigate('/login');
+        return;
+      }
+
+      const authId = session.user.id;
+
+      // 🔍 DEBUG: Solo 2 logs
+      console.log("auth.uid:", authId);
+      console.log("users.id (profile):", loggedInCompanyProfile?.id);
+
+      console.log("[UserScreen] Agregando persona autorizada para auth.uid:", authId);
+
+      // ✅ INSERTAR CON AUTH.UID()
+      const { data: newPerson, error: insertError } = await supabase
+        .from('authorized_persons')
+        .insert([{
+          user_id: authId, // ✅ auth.uid() directo
+          name: name.trim(),
+          document_type: 'CC',
+          document_number: documentId.trim(),
+          can_pickup: true,
+          can_deliver: true,
+          is_active: true,
+        }])
+        .select()
+        .single();
+
+      if (insertError) {
+        console.error("[UserScreen] Error insertando persona autorizada:", insertError);
+        addNotification('error', 'Error al agregar la persona autorizada');
+        return;
+      }
+
+      console.log("[UserScreen] ✅ Persona autorizada agregada:", newPerson);
+
+      // Actualizar estado local
+      setAuthorizedPersons(prev => [newPerson, ...prev]);
+      addNotification('success', `${name} agregado como persona autorizada`);
+    } catch (error) {
+      console.error("[UserScreen] Error en handleAddPerson:", error);
+      addNotification('error', 'Error al agregar la persona autorizada');
+    }
+  }, [loggedInCompanyProfile, addNotification, navigate]);
 
   const handleRemovePerson = useCallback(async (personId) => {
-    // TODO: Implementar cuando se cree la tabla de personas autorizadas
-    console.log("[UserScreen] TODO: Remover persona autorizada", personId);
-    addNotification('info', 'Función en desarrollo');
+    try {
+      if (!personId) {
+        addNotification('error', 'ID de persona inválido');
+        return;
+      }
+
+      console.log("[UserScreen] Removiendo persona autorizada:", personId);
+
+      // Marcar como inactiva en lugar de eliminar (soft delete)
+      const { error: updateError } = await supabase
+        .from('authorized_persons')
+        .update({ is_active: false })
+        .eq('id', personId);
+
+      if (updateError) {
+        console.error("[UserScreen] Error removiendo persona autorizada:", updateError);
+        addNotification('error', 'Error al remover la persona autorizada');
+        return;
+      }
+
+      console.log("[UserScreen] ✅ Persona autorizada removida");
+
+      // Actualizar estado local
+      setAuthorizedPersons(prev => prev.filter(p => p.id !== personId));
+      addNotification('success', 'Persona autorizada removida correctamente');
+    } catch (error) {
+      console.error("[UserScreen] Error en handleRemovePerson:", error);
+      addNotification('error', 'Error al remover la persona autorizada');
+    }
   }, [addNotification]);
 
   const handleAddUser = useCallback(async (userData) => {
