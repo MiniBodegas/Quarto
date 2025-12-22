@@ -41,6 +41,10 @@ const BookingScreen = ({
   const [emailError, setEmailError] = useState("");
   const [phoneError, setPhoneError] = useState("");
   const [touched, setTouched] = useState({ email: false, phone: false });
+  
+  // ✅ Estado para modal de confirmación
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successData, setSuccessData] = useState(null);
 
   // ✅ Cargar datos del formulario desde localStorage al montar
   useEffect(() => {
@@ -440,30 +444,33 @@ const BookingScreen = ({
       console.log("[Booking] 📋 Booking ID:", bookingId);
       console.log("[Booking] 🔑 Token:", internalToken);
       
-      // ✅ Mostrar mensaje de éxito y dar opciones al usuario
-      alert(
-        `¡Reserva confirmada! 🎉\n\n` +
-        `Tu reserva ha sido creada exitosamente.\n` +
-        `ID: ${bookingId.substring(0, 8)}...\n\n` +
-        `Puedes:\n` +
-        `1. Crear una cuenta para gestionar tu reserva\n` +
-        `2. Realizar el pago desde tu perfil cuando estés listo\n\n` +
-        `Te redirigiremos al registro...`
-      );
-      
-      // Limpiar formulario y datos temporales
-      localStorage.removeItem('quarto_booking_form');
-      localStorage.removeItem('quarto_inventory');
-      localStorage.removeItem('quarto_transport');
-      localStorage.removeItem('quarto_logistics_method');
-      
-      // Redirigir al registro/login con el bookingId
-      window.location.href = `/payment-success?booking_id=${bookingId}`;
+      // ✅ Guardar datos para el modal y mostrarlo
+      setSuccessData({
+        bookingId,
+        internalToken,
+        name,
+        email,
+        date,
+        timeSlot
+      });
+      setShowSuccessModal(true);
 
     } catch (err) {
       console.error("[Booking] Error inesperado:", err);
       alert("Ocurrió un error al guardar tu reserva.");
     }
+  };
+
+  // ✅ Función para cerrar modal y redirigir
+  const handleModalClose = () => {
+    // Limpiar formulario y datos temporales
+    localStorage.removeItem('quarto_booking_form');
+    localStorage.removeItem('quarto_inventory');
+    localStorage.removeItem('quarto_transport');
+    localStorage.removeItem('quarto_logistics_method');
+    
+    // Redirigir al registro/login con el bookingId
+    window.location.href = `/payment-success?booking_id=${successData.bookingId}`;
   };
 
   const isFormValid =
@@ -481,6 +488,97 @@ const BookingScreen = ({
 
   return (
     <div className="min-h-screen flex flex-col ">
+      {/* ✅ Modal de confirmación exitosa */}
+      {showSuccessModal && successData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 animate-in fade-in zoom-in duration-300">
+            {/* Icono de éxito */}
+            <div className="flex justify-center mb-6">
+              <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
+                <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Título */}
+            <h2 className="text-3xl font-bold text-center text-[#012E58] mb-3">
+              ¡Reserva Confirmada! 🎉
+            </h2>
+
+            {/* Mensaje */}
+            <p className="text-center text-slate-600 mb-6">
+              Tu reserva ha sido creada exitosamente
+            </p>
+
+            {/* Detalles */}
+            <div className="bg-slate-50 rounded-2xl p-5 space-y-3 mb-6">
+              <div className="flex flex-col gap-1">
+                <span className="text-sm text-slate-500 font-medium">ID de Reserva:</span>
+                <span className="text-xs font-mono font-semibold text-[#012E58] break-all">
+                  {successData.bookingId}
+                </span>
+              </div>
+              <div className="flex items-start justify-between">
+                <span className="text-sm text-slate-500 font-medium">Cliente:</span>
+                <span className="text-sm font-semibold text-slate-700 text-right">
+                  {successData.name}
+                </span>
+              </div>
+              <div className="flex items-start justify-between">
+                <span className="text-sm text-slate-500 font-medium">Email:</span>
+                <span className="text-sm font-medium text-slate-700 text-right break-all">
+                  {successData.email}
+                </span>
+              </div>
+              <div className="flex items-start justify-between">
+                <span className="text-sm text-slate-500 font-medium">Fecha:</span>
+                <span className="text-sm font-semibold text-slate-700">
+                  {new Date(successData.date).toLocaleDateString('es-CO', { 
+                    day: '2-digit', 
+                    month: 'long', 
+                    year: 'numeric' 
+                  })}
+                </span>
+              </div>
+              <div className="flex items-start justify-between">
+                <span className="text-sm text-slate-500 font-medium">Horario:</span>
+                <span className="text-sm font-semibold text-slate-700">
+                  {TIME_SLOTS.find(slot => slot.value === successData.timeSlot)?.label || successData.timeSlot}
+                </span>
+              </div>
+            </div>
+
+            {/* Instrucciones */}
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-6">
+              <h3 className="text-sm font-bold text-[#012E58] mb-2">Próximos pasos:</h3>
+              <ul className="space-y-2 text-sm text-slate-700">
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-600 font-bold">1.</span>
+                  <span>Crea una cuenta para gestionar tu reserva</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-600 font-bold">2.</span>
+                  <span>Realiza el pago desde tu perfil cuando estés listo</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="text-blue-600 font-bold">3.</span>
+                  <span>Accede a tu inventario y gestiona tu almacenamiento</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Botón de continuar */}
+            <button
+              onClick={handleModalClose}
+              className="w-full bg-gradient-to-r from-[#012E58] to-[#014c91] text-white font-bold py-4 px-6 rounded-xl hover:shadow-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+            >
+              Continuar al Registro
+            </button>
+          </div>
+        </div>
+      )}
+
       <main className="container mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 flex-grow pt-8 pb-12">
         <ScreenHeader
           title="Agenda tu servicio"

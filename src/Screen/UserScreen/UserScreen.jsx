@@ -58,29 +58,70 @@ const UserScreen = () => {
         console.log("[UserScreen] Usuario autenticado:", userEmail, "ID:", authId);
 
         // 2. Obtener datos del usuario desde la tabla users
-        // ✅ BUSCAR POR ID, NO POR EMAIL (evita registros viejos)
+        // ✅ BUSCAR PRIMERO POR EMAIL (para usuarios legacy)
         let userData = null;
-        const { data: existingUser, error: userError } = await supabase
+        const { data: existingUserByEmail, error: emailError } = await supabase
           .from('users')
           .select('*')
-          .eq('id', authId) // ✅ Buscar por auth.uid()
+          .eq('email', userEmail)
           .maybeSingle();
 
-        if (userError) {
-          console.error("[UserScreen] Error consultando usuario:", userError);
+        if (emailError) {
+          console.error("[UserScreen] Error consultando usuario por email:", emailError);
           addNotification('error', 'Error al consultar los datos del usuario');
           navigate('/login');
           return;
         }
 
-        if (!existingUser) {
-          // Usuario no existe en la tabla users, crearlo
+        if (existingUserByEmail) {
+          // Usuario existe por email
+          if (existingUserByEmail.id !== authId) {
+            // ⚠️ ID no coincide - actualizar al auth.uid() correcto
+            console.log("[UserScreen] ⚠️ Usuario existe con ID diferente, sincronizando...");
+            console.log("[UserScreen] ID anterior:", existingUserByEmail.id);
+            console.log("[UserScreen] ID nuevo (auth.uid):", authId);
+            
+            // Actualizar bookings primero para evitar problemas de FK
+            await supabase
+              .from('bookings')
+              .update({ user_id: authId })
+              .eq('user_id', existingUserByEmail.id);
+            
+            // Actualizar authorized_persons
+            await supabase
+              .from('authorized_persons')
+              .update({ user_id: authId })
+              .eq('user_id', existingUserByEmail.id);
+            
+            // Actualizar el ID del usuario
+            const { data: updatedUser, error: updateError } = await supabase
+              .from('users')
+              .update({ id: authId })
+              .eq('email', userEmail)
+              .select()
+              .single();
+            
+            if (updateError) {
+              console.error("[UserScreen] Error actualizando ID de usuario:", updateError);
+              // Si falla, usar el usuario existente
+              userData = existingUserByEmail;
+            } else {
+              userData = updatedUser;
+              console.log("[UserScreen] ✅ Usuario sincronizado correctamente");
+            }
+          } else {
+            // ID ya coincide
+            userData = existingUserByEmail;
+            console.log("[UserScreen] ✅ Usuario encontrado con ID correcto");
+          }
+        } else {
+          // Usuario no existe, crearlo
           console.log("[UserScreen] Usuario no existe en tabla users, creando...");
           
           const { data: newUser, error: createError } = await supabase
             .from('users')
             .insert([{
-              id: session.user.id,
+              id: authId,
               email: userEmail,
               name: session.user.user_metadata?.name || userEmail.split('@')[0],
               phone: session.user.user_metadata?.phone || null,
@@ -98,9 +139,6 @@ const UserScreen = () => {
 
           userData = newUser;
           console.log("[UserScreen] ✅ Usuario creado en tabla users");
-        } else {
-          userData = existingUser;
-          console.log("[UserScreen] ✅ Usuario encontrado en tabla users");
         }
 
         // Configurar perfil del usuario
@@ -147,16 +185,19 @@ const UserScreen = () => {
   // ============================================
   const loadUserData = async (userId) => {
     try {
-      console.log("[UserScreen] Cargando datos para usuario:", userId);
+      console.log("[UserScreen] 🔍 Cargando datos para userId:", userId);
 
       // Obtener el email del usuario
       const { data: { user } } = await supabase.auth.getUser();
       const userEmail = user?.email;
+      
+      console.log("[UserScreen] 📧 Email del usuario auth:", userEmail);
 
       // Cargar bookings (facturas) - buscar por user_id O por email
       let bookings = [];
       
       // 1. Buscar por user_id (bookings ya asociados)
+      console.log("[UserScreen] 🔎 Buscando bookings con user_id:", userId);
       const { data: bookingsByUserId, error: bookingsError1 } = await supabase
         .from('bookings')
         .select('*')
@@ -164,11 +205,19 @@ const UserScreen = () => {
         .order('created_at', { ascending: false });
 
       if (!bookingsError1 && bookingsByUserId) {
+        console.log("[UserScreen] ✅ Bookings encontrados por user_id:", bookingsByUserId.length);
+        console.log("[UserScreen] 📋 Bookings por user_id:", bookingsByUserId.map(b => ({
+          id: b.id.substring(0, 8),
+          email: b.email,
+          user_id: b.user_id,
+          status: b.payment_status
+        })));
         bookings = [...bookingsByUserId];
       }
 
       // 2. Buscar por email (bookings sin user_id pero con el mismo email)
       if (userEmail) {
+        console.log("[UserScreen] 🔎 Buscando bookings huérfanos con email:", userEmail);
         const { data: bookingsByEmail, error: bookingsError2 } = await supabase
           .from('bookings')
           .select('*')
@@ -177,20 +226,30 @@ const UserScreen = () => {
           .order('created_at', { ascending: false });
 
         if (!bookingsError2 && bookingsByEmail && bookingsByEmail.length > 0) {
-          console.log("[UserScreen] Bookings encontrados por email:", bookingsByEmail.length);
+          console.log("[UserScreen] 📧 Bookings huérfanos encontrados por email:", bookingsByEmail.length);
+          console.log("[UserScreen] 📋 Bookings por email:", bookingsByEmail.map(b => ({
+            id: b.id.substring(0, 8),
+            email: b.email,
+            user_id: b.user_id,
+            status: b.payment_status
+          })));
           
           // Asociar estos bookings al user_id
           const bookingIds = bookingsByEmail.map(b => b.id);
+          console.log("[UserScreen] 🔗 Asociando bookings al user_id:", userId);
+          
           await supabase
             .from('bookings')
             .update({ user_id: userId })
             .in('id', bookingIds);
           
           bookings = [...bookings, ...bookingsByEmail];
+        } else {
+          console.log("[UserScreen] ℹ️ No hay bookings huérfanos con email:", userEmail);
         }
       }
 
-      console.log("[UserScreen] Total bookings encontrados:", bookings.length);
+      console.log("[UserScreen] 📊 Total bookings encontrados:", bookings.length);
 
       if (bookings.length > 0) {
         console.log("[UserScreen] Bookings obtenidos:", bookings);
