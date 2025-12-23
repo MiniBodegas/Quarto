@@ -380,8 +380,9 @@ const UserScreen = () => {
             invoice_number: booking.invoice_number || `INV-BOOK-${booking.id.substring(0, 8)}`,
             issue_date: issueDate,
             due_date: dueDate,
-            amount: amountTotal,
+            amount: amountMonthly, // ✅ Usar amount_monthly (precio recurrente mensual)
             amount_monthly: amountMonthly,
+            amount_total: amountTotal, // ✅ Guardar amount_total solo como referencia del primer pago
             status: status,
             reference: booking.wompi_reference || `QUARTO_${booking.id}`,
             description: `Servicio de almacenamiento${booking.logistics_method ? ` - ${booking.logistics_method}` : ''}`,
