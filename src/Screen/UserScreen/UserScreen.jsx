@@ -180,6 +180,37 @@ const UserScreen = () => {
     initializeUser();
   }, [navigate, addNotification]);
 
+  // ✅ Recargar datos cuando se vuelva de agregar items
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && loginUser?.id) {
+        console.log('[UserScreen] 🔄 Página visible, verificando si hay que recargar...');
+        const wasAdding = localStorage.getItem('quarto_adding_items');
+        if (wasAdding === 'completed') {
+          console.log('[UserScreen] 🔄 Recargando datos después de agregar items...');
+          localStorage.removeItem('quarto_adding_items');
+          loadUserData(loginUser.id);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // También verificar al montar si acabamos de volver
+    if (loginUser?.id) {
+      const wasAdding = localStorage.getItem('quarto_adding_items');
+      if (wasAdding === 'completed') {
+        console.log('[UserScreen] 🔄 Recargando datos al montar (items agregados)');
+        localStorage.removeItem('quarto_adding_items');
+        loadUserData(loginUser.id);
+      }
+    }
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [loginUser]);
+
   // ============================================
   // CARGAR DATOS DEL USUARIO
   // ============================================
@@ -215,18 +246,17 @@ const UserScreen = () => {
         bookings = [...bookingsByUserId];
       }
 
-      // 2. Buscar por email (bookings sin user_id pero con el mismo email)
+      // 2. Buscar por email (bookings del mismo usuario con user_id diferente)
       if (userEmail) {
-        console.log("[UserScreen] 🔎 Buscando bookings huérfanos con email:", userEmail);
+        console.log("[UserScreen] 🔎 Buscando bookings por email:", userEmail);
         const { data: bookingsByEmail, error: bookingsError2 } = await supabase
           .from('bookings')
           .select('*')
           .eq('email', userEmail)
-          .is('user_id', null)
           .order('created_at', { ascending: false });
 
         if (!bookingsError2 && bookingsByEmail && bookingsByEmail.length > 0) {
-          console.log("[UserScreen] 📧 Bookings huérfanos encontrados por email:", bookingsByEmail.length);
+          console.log("[UserScreen] 📧 Bookings encontrados por email:", bookingsByEmail.length);
           console.log("[UserScreen] 📋 Bookings por email:", bookingsByEmail.map(b => ({
             id: b.id.substring(0, 8),
             email: b.email,
@@ -234,28 +264,92 @@ const UserScreen = () => {
             status: b.payment_status
           })));
           
-          // Asociar estos bookings al user_id
-          const bookingIds = bookingsByEmail.map(b => b.id);
-          console.log("[UserScreen] 🔗 Asociando bookings al user_id:", userId);
+          // Asociar bookings que tengan user_id diferente al actual
+          const bookingsToUpdate = bookingsByEmail.filter(b => b.user_id !== userId);
           
-          await supabase
-            .from('bookings')
-            .update({ user_id: userId })
-            .in('id', bookingIds);
+          if (bookingsToUpdate.length > 0) {
+            const bookingIds = bookingsToUpdate.map(b => b.id);
+            console.log("[UserScreen] 🔗 Asociando", bookingsToUpdate.length, "bookings al user_id:", userId);
+            
+            await supabase
+              .from('bookings')
+              .update({ user_id: userId })
+              .in('id', bookingIds);
+          }
           
-          bookings = [...bookings, ...bookingsByEmail];
+          // Combinar todos los bookings (evitar duplicados por ID)
+          const existingIds = new Set(bookings.map(b => b.id));
+          const newBookings = bookingsByEmail.filter(b => !existingIds.has(b.id));
+          bookings = [...bookings, ...newBookings];
         } else {
-          console.log("[UserScreen] ℹ️ No hay bookings huérfanos con email:", userEmail);
+          console.log("[UserScreen] ℹ️ No hay bookings con email:", userEmail);
         }
       }
 
       console.log("[UserScreen] 📊 Total bookings encontrados:", bookings.length);
 
+      // ✅ 1. Cargar pagos reales de la tabla payments (facturas/cobros pendientes)
+      let realInvoices = [];
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('payments')
+        .select('*')
+        .in('booking_id', bookings.map(b => b.id))
+        .order('created_at', { ascending: false });
+
+      if (paymentsError) {
+        console.error('[UserScreen] ❌ Error cargando pagos:', paymentsError);
+      } else if (paymentsData && paymentsData.length > 0) {
+        console.log('[UserScreen] ✅ Pagos encontrados:', paymentsData.length);
+        console.log('[UserScreen] � Datos de pagos:', paymentsData);
+        
+        realInvoices = paymentsData.map(payment => {
+          const issueDate = payment.created_at ? new Date(payment.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+          // Vencimiento 15 días después de creación
+          const dueDate = payment.created_at 
+            ? new Date(new Date(payment.created_at).getTime() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+            : new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          
+          // Mapear status del pago
+          let status = 'unpaid';
+          if (payment.status === 'APPROVED' || payment.status === 'PAID') {
+            status = 'paid';
+          } else if (payment.status === 'PENDING' && dueDate < new Date().toISOString().split('T')[0]) {
+            status = 'overdue';
+          }
+          
+          const amount = payment.amount_in_cents ? payment.amount_in_cents / 100 : 0;
+          
+          return {
+            id: payment.id,
+            company_id: userId,
+            invoice_number: payment.wompi_reference || `PAY-${payment.id.substring(0, 8)}`,
+            issue_date: issueDate,
+            due_date: dueDate,
+            amount: amount,
+            amount_monthly: amount,
+            status: status,
+            reference: payment.wompi_reference || `QUARTO_${payment.id}`,
+            description: payment.wompi_event?.description || 'Servicio de almacenamiento',
+            payment_status: payment.status,
+            booking_id: payment.booking_id,
+            wompi_transaction_id: payment.wompi_transaction_id,
+            isRealPayment: true, // ✅ Marcar como pago real
+          };
+        });
+      } else {
+        console.log('[UserScreen] ℹ️ No hay pagos registrados');
+      }
+
+      // ✅ 2. Crear facturas desde bookings (para compatibilidad, solo si NO tienen pago)
+      const bookingsWithPayment = new Set(realInvoices.map(inv => inv.booking_id));
+      let bookingInvoices = [];
       if (bookings.length > 0) {
         console.log("[UserScreen] Bookings obtenidos:", bookings);
         
-        // Mapear bookings a formato de facturas
-        const invoices = bookings.map(booking => {
+        // Mapear bookings a formato de facturas (solo los que NO tienen pago asociado)
+        bookingInvoices = bookings
+          .filter(booking => !bookingsWithPayment.has(booking.id)) // ✅ Excluir los que ya tienen pago
+          .map(booking => {
           const issueDate = booking.created_at ? new Date(booking.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
           const dueDate = booking.due_date 
             ? new Date(booking.due_date).toISOString().split('T')[0]
@@ -283,7 +377,7 @@ const UserScreen = () => {
           return {
             id: booking.id,
             company_id: userId,
-            invoice_number: booking.invoice_number || `INV-${booking.id.substring(0, 8)}`,
+            invoice_number: booking.invoice_number || `INV-BOOK-${booking.id.substring(0, 8)}`,
             issue_date: issueDate,
             due_date: dueDate,
             amount: amountTotal,
@@ -293,14 +387,30 @@ const UserScreen = () => {
             description: `Servicio de almacenamiento${booking.logistics_method ? ` - ${booking.logistics_method}` : ''}`,
             payment_status: booking.payment_status,
             transport_price: Number(booking.transport_price) || 0,
+            booking_id: booking.id,
           };
         });
         
-        console.log("[UserScreen] Facturas mapeadas:", invoices);
-        setUserInvoices(invoices);
-      } else {
-        console.log("[UserScreen] No se encontraron bookings");
-        setUserInvoices([]);
+        console.log("[UserScreen] Facturas desde bookings:", bookingInvoices.length);
+      }
+
+      // ✅ 3. Combinar facturas reales + facturas de bookings (evitar duplicados por booking_id)
+      const allInvoices = [...realInvoices];
+      
+      // Agregar facturas de bookings solo si no hay factura real para ese booking
+      bookingInvoices.forEach(bookingInv => {
+        const hasRealInvoice = realInvoices.some(inv => inv.booking_id === bookingInv.booking_id);
+        if (!hasRealInvoice) {
+          allInvoices.push(bookingInv);
+        }
+      });
+
+      console.log("[UserScreen] 📊 Total facturas combinadas:", allInvoices.length);
+      console.log("[UserScreen] Facturas finales:", allInvoices);
+      setUserInvoices(allInvoices);
+
+      if (allInvoices.length === 0) {
+        console.log("[UserScreen] No se encontraron facturas");
       }
 
       // Cargar inventario - buscar por booking_id de los bookings del usuario
@@ -319,6 +429,12 @@ const UserScreen = () => {
         if (!inventoryError && inventoryData) {
           console.log("[UserScreen] ✅ Inventario encontrado:", inventoryData.length, "items");
           console.log("[UserScreen] 📦 Datos del inventario:", inventoryData);
+          console.log("[UserScreen] 📦 Cantidades por item:", inventoryData.map(i => ({
+            name: i.name,
+            quantity: i.quantity,
+            volume: i.volume,
+            booking_id: i.booking_id
+          })));
           inventory = inventoryData;
         } else if (inventoryError) {
           console.error("[UserScreen] ❌ Error cargando inventario:", inventoryError);
@@ -331,38 +447,34 @@ const UserScreen = () => {
 
       console.log("[UserScreen] 📊 Total inventario encontrado:", inventory.length);
       
-      if (inventory.length > 0) {
-        console.log("[UserScreen] ✅ Estableciendo inventario en el estado:", inventory);
-        setUserInventory(inventory);
-      } else {
-        console.log("[UserScreen] ⚠️ No hay inventario para mostrar");
-        setUserInventory([]);
-      }
+      // NO establecer inventario aquí todavía, esperar a mapear storage_unit_id
+      
+      // ✅ Crear UNA SOLA unidad de almacenamiento para todos los items del usuario
+      const totalVolume = bookings.reduce((sum, b) => sum + (b.total_volume || 0), 0);
+      const storageUnits = [{
+        id: 'main-storage', // ID único para la bodega principal
+        number: '1',
+        name: 'Mi Bodega',
+        booking_id: null, // No está asociada a un booking específico
+        location: 'Ubicación principal',
+        size: totalVolume,
+      }];
 
-      // Crear unidades de almacenamiento virtuales basadas en los bookings
-      // Cada booking tiene su propia "unidad" de almacenamiento
-      const storageUnits = bookings.map((booking, index) => ({
-        id: booking.id,
-        number: `${index + 1}`,
-        name: `Bodega ${index + 1}`,
-        booking_id: booking.id,
-        location: booking.storage_location || 'Ubicación principal',
-        size: booking.total_volume || 0,
-      }));
-
-      console.log("[UserScreen] 📦 Unidades de almacenamiento creadas:", storageUnits.length);
+      console.log("[UserScreen] 📦 Unidad de almacenamiento creada (única):", storageUnits.length);
       setUserStorageUnits(storageUnits);
 
-      // Asociar inventario a las unidades de almacenamiento
-      // Cada item del inventario pertenece a una unidad (booking)
+      // ✅ Asociar TODOS los items a la misma unidad de almacenamiento
       if (inventory.length > 0) {
         const inventoryWithUnits = inventory.map(item => ({
           ...item,
-          storage_unit_id: item.booking_id, // Usar booking_id como storage_unit_id
+          storage_unit_id: 'main-storage', // Todos van a la misma bodega
         }));
         
-        console.log("[UserScreen] 📦 Inventario asociado a unidades:", inventoryWithUnits);
+        console.log("[UserScreen] 📦 Inventario asociado a bodega única:", inventoryWithUnits.length, "items");
         setUserInventory(inventoryWithUnits);
+      } else {
+        console.log("[UserScreen] ⚠️ No hay inventario para mostrar");
+        setUserInventory([]);
       }
 
       // Cargar personas autorizadas del usuario

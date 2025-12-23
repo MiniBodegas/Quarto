@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Card from './ui/Card';
 import Button from './ui/Button';
 import Modal from './ui/Modal';
@@ -7,12 +8,29 @@ import Spinner from './ui/Spinner';
 import { toProperCase } from '../utils/formatters';
 
 const Inventory = ({ items, logs, storageUnits, onMovement }) => {
+  const navigate = useNavigate();
   // Detectar si es modo solo lectura (usuarios normales sin permisos de edición)
   const isReadOnly = !onMovement;
+  
+  console.log("[Inventory] Props recibidas:", {
+    itemsCount: items?.length || 0,
+    logsCount: logs?.length || 0,
+    storageUnitsCount: storageUnits?.length || 0,
+    isReadOnly,
+    onMovement: !!onMovement
+  });
+  console.log("[Inventory] Storage Units:", storageUnits.map(u => ({
+    id: u.id,
+    number: u.number,
+    booking_id: u.booking_id
+  })));
 
   // Initialize with the first unit if available
   const [selectedUnitId, setSelectedUnitId] = useState(() => {
-      if (storageUnits.length > 0) return storageUnits[0].id;
+      if (storageUnits.length > 0) {
+        console.log("[Inventory] Inicializando con unidad:", storageUnits[0].id);
+        return storageUnits[0].id;
+      }
       return '';
   });
 
@@ -47,9 +65,58 @@ const Inventory = ({ items, logs, storageUnits, onMovement }) => {
       setSelectedItem(null);
   };
 
-  // Filter Data based on Unit
-  const unitItems = useMemo(() => items.filter(i => i.storage_unit_id === selectedUnitId), [items, selectedUnitId]);
+  // Filter Data based on Unit and GROUP by name (sum quantities)
+  const unitItems = useMemo(() => {
+    console.log("[Inventory] Filtrando items:", {
+      selectedUnitId,
+      totalItems: items.length,
+      storageUnits: storageUnits.length
+    });
+    const filtered = items.filter(i => i.storage_unit_id === selectedUnitId);
+    console.log("[Inventory] Items filtrados para unidad", selectedUnitId, ":", filtered.length);
+    
+    // ✅ Agrupar items por nombre y sumar cantidades
+    const grouped = filtered.reduce((acc, item) => {
+      const key = item.name.toLowerCase().trim();
+      
+      if (acc[key]) {
+        // Item ya existe, sumar cantidad
+        acc[key].quantity += Number(item.quantity) || 0;
+      } else {
+        // Primer item de este tipo
+        acc[key] = {
+          ...item,
+          quantity: Number(item.quantity) || 0,
+          _grouped: true, // Marcar como agrupado
+          _originalIds: [item.id], // Guardar IDs originales
+        };
+      }
+      
+      // Agregar ID a la lista
+      if (acc[key]._originalIds && !acc[key]._originalIds.includes(item.id)) {
+        acc[key]._originalIds.push(item.id);
+      }
+      
+      return acc;
+    }, {});
+    
+    const result = Object.values(grouped);
+    console.log("[Inventory] Items agrupados:", result.length);
+    console.log("[Inventory] Muestra agrupada:", result.slice(0, 3).map(i => ({
+      name: i.name,
+      quantity: i.quantity,
+      grouped: i._grouped,
+      originalCount: i._originalIds?.length
+    })));
+    
+    return result;
+  }, [items, selectedUnitId]);
   const unitLogs = useMemo(() => logs.filter(l => l.storage_unit_id === selectedUnitId), [logs, selectedUnitId]);
+
+  // ✅ Calcular volumen total ocupado
+  const totalVolume = useMemo(() => {
+    return unitItems.reduce((sum, item) => sum + (Number(item.volume) || 0) * (Number(item.quantity) || 1), 0);
+  }, [unitItems]);
 
   const categories = Array.from(new Set(unitItems.map(i => i.category || 'Sin Categoría')));
   
@@ -162,23 +229,20 @@ const Inventory = ({ items, logs, storageUnits, onMovement }) => {
     <div>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
-             <h1 className="text-3xl font-bold text-text-primary">Gestión de Inventario</h1>
-             <p className="text-text-secondary">Administra tus pertenencias con total libertad.</p>
+             <h1 className="text-3xl font-bold text-text-primary">Mi Inventario</h1>
+             <p className="text-text-secondary">Todas tus pertenencias en un solo lugar.</p>
         </div>
         
         <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center w-full md:w-auto">
-             {storageUnits.length > 1 ? (
+             {/* Solo mostrar selector de bodegas si hay más de una Y es modo admin */}
+             {!isReadOnly && storageUnits.length > 1 && (
                  <select 
                     className="bg-white border border-border rounded-md px-3 py-2 focus:ring-2 focus:ring-primary shadow-sm"
                     value={selectedUnitId}
                     onChange={(e) => setSelectedUnitId(e.target.value)}
                  >
-                     {storageUnits.map(u => <option key={u.id} value={u.id}>Bodega {u.number}</option>)}
+                     {storageUnits.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                  </select>
-             ) : (
-                 <div className="bg-blue-50 text-primary px-4 py-2 rounded-md font-medium border border-blue-100">
-                     Bodega {storageUnits[0].number}
-                 </div>
              )}
              
              <div className="flex bg-card rounded-lg border border-border p-1">
@@ -197,6 +261,48 @@ const Inventory = ({ items, logs, storageUnits, onMovement }) => {
              </div>
         </div>
       </div>
+
+      {/* ✅ Indicador de Espacio Ocupado */}
+      <Card className="mb-6 bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+          {/* Volumen ocupado */}
+          <div className="flex-1">
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-100 p-3 rounded-lg">
+                <span className="material-symbols-outlined text-blue-600 text-3xl">inventory_2</span>
+              </div>
+              
+              <div>
+                <p className="text-sm text-gray-600 mb-1">Espacio Total Ocupado</p>
+                <p className="text-3xl font-bold text-gray-800">
+                  {totalVolume.toFixed(2)} <span className="text-xl text-gray-600">m³</span>
+                </p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {unitItems.length} {unitItems.length === 1 ? 'artículo' : 'artículos'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Botón agregar más items */}
+          {isReadOnly && (
+            <div className="flex-shrink-0">
+              <Button 
+                onClick={() => {
+                  console.log("[Inventory] Navegando a calculadora para agregar items");
+                  // Marcar que viene desde inventory para agregar items
+                  localStorage.setItem('quarto_adding_items', 'true');
+                  navigate('/');
+                }}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transition-all"
+              >
+                <span className="material-symbols-outlined text-sm mr-2">add_circle</span>
+                Agregar Más Items
+              </Button>
+            </div>
+          )}
+        </div>
+      </Card>
 
       {view === 'current' && (
         <>

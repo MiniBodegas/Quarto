@@ -32,6 +32,11 @@ const initialState = {
   transactionId: null, // ✅ Guardar transaction ID de Wompi
   wompi: null,
   aiResults: null, // ✅ Almacenar resultados de IA
+  isAddingToExisting: false, // ✅ Flag para saber si viene desde Inventory
+  existingBookingId: null, // ✅ ID del booking al que agregar items
+  invoiceInfo: null, // ✅ Info de factura generada (legacy)
+  paymentInfo: null, // ✅ Info de pago generado (legacy - reservas nuevas)
+  updateInfo: null, // ✅ Info de actualización (agregar items)
 };
 
 function appReducer(state, action) {
@@ -41,6 +46,15 @@ function appReducer(state, action) {
         ...state,
         mode: action.payload,
         view: action.payload === 'manual' ? 'calculator' : 'aiPhotos',
+      };
+
+    case 'SET_ADDING_MODE':
+      return {
+        ...state,
+        isAddingToExisting: true,
+        existingBookingId: action.payload.bookingId,
+        mode: 'manual',
+        view: 'calculator',
       };
 
     case 'SET_WOMPI_ORDER':
@@ -68,6 +82,16 @@ function appReducer(state, action) {
         view: 'confirmation', 
         customerName: action.payload.name,
         transactionId: action.payload.transactionId || null, // ✅ Guardar transaction ID
+      };
+
+    case 'SAVE_ITEMS_TO_EXISTING':
+      return {
+        ...state,
+        view: 'confirmation',
+        customerName: action.payload.name || 'Usuario',
+        invoiceInfo: action.payload.invoiceInfo || null, // ✅ Info de factura generada (legacy)
+        paymentInfo: action.payload.paymentInfo || null, // ✅ Info de pago generado (legacy - reservas nuevas)
+        updateInfo: action.payload.updateInfo || null, // ✅ Info de actualización (agregar items)
       };
 
     case 'RESET_APP':
@@ -133,6 +157,90 @@ const Calculator = () => {
 
   const { categories, itemsByCategory, loading } = useItemsByCategory();
 
+  // Verificar si viene desde Inventory para agregar items
+  useEffect(() => {
+    const checkAddingItems = async () => {
+      const isAddingItems = localStorage.getItem('quarto_adding_items');
+      
+      if (isAddingItems === 'true') {
+        console.log('[Calculator] 🔍 Usuario viene desde Inventory para agregar items');
+        localStorage.removeItem('quarto_adding_items');
+        
+        try {
+          // Verificar sesión
+          const { data: { session } } = await supabase.auth.getSession();
+          
+          if (!session) {
+            console.log('[Calculator] ⚠️ No hay sesión, mostrando home normal');
+            return;
+          }
+
+          const userEmail = session.user.email;
+          console.log('[Calculator] 📧 Email del usuario:', userEmail);
+          
+          // Verificar si tiene cuenta en users
+          const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', userEmail)
+            .maybeSingle();
+
+          if (userError) {
+            console.error('[Calculator] ❌ Error verificando usuario:', userError);
+            return;
+          }
+
+          if (!userData) {
+            console.log('[Calculator] 👤 Usuario sin cuenta registrada, flujo normal de contratación');
+            alert('Primero debes completar el proceso de contratación para crear una cuenta.');
+            return;
+          }
+
+          console.log('[Calculator] ✅ Usuario tiene cuenta registrada (ID:', userData.id, ')');
+          
+          // Verificar si tiene bookings activos (buscar por user_id O por email)
+          const { data: bookingsByUserId, error: bookingsError1 } = await supabase
+            .from('bookings')
+            .select('id')
+            .eq('user_id', userData.id)
+            .limit(1);
+
+          const { data: bookingsByEmail, error: bookingsError2 } = await supabase
+            .from('bookings')
+            .select('id')
+            .eq('email', userEmail)
+            .limit(1);
+
+          if (bookingsError1 || bookingsError2) {
+            console.error('[Calculator] ❌ Error verificando bookings:', bookingsError1 || bookingsError2);
+            return;
+          }
+
+          const hasBookings = (bookingsByUserId && bookingsByUserId.length > 0) || 
+                              (bookingsByEmail && bookingsByEmail.length > 0);
+          const firstBooking = bookingsByUserId?.[0] || bookingsByEmail?.[0];
+
+          if (!hasBookings) {
+            console.log('[Calculator] 📦 Usuario sin bookings activos, puede crear nueva reserva');
+            alert('Tienes una cuenta registrada pero no tienes reservas activas. Completa el proceso para crear una nueva reserva.');
+          } else {
+            console.log('[Calculator] 🎉 Usuario con bookings activos, puede continuar agregando items');
+            console.log('[Calculator] 🎯 Booking ID a usar:', firstBooking.id);
+            // Ir directo a la calculadora manual con el booking existente
+            dispatch({ 
+              type: 'SET_ADDING_MODE', 
+              payload: { bookingId: firstBooking.id } 
+            });
+          }
+        } catch (error) {
+          console.error('[Calculator] ❌ Error en verificación:', error);
+        }
+      }
+    };
+
+    checkAddingItems();
+  }, []);
+
   useEffect(() => {
     const timer = setTimeout(() => setIsStyled(true), 150);
     return () => clearTimeout(timer);
@@ -165,6 +273,150 @@ const Calculator = () => {
     setShowConfirmModal(false);
   };
 
+  // Calcular items seleccionados (necesario antes de handleSaveItemsToExisting)
+  const selectedItems = useMemo(() => items.filter((item) => item.quantity > 0), [items]);
+
+  // Función para guardar items directamente al booking existente
+  const handleSaveItemsToExisting = useCallback(async () => {
+    try {
+      console.log('[Calculator] 💾 Guardando items al booking existente:', state.existingBookingId);
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        alert('Error: No hay sesión activa');
+        return;
+      }
+
+      // Obtener el nombre del usuario y el booking actual
+      const { data: userData } = await supabase
+        .from('users')
+        .select('name, email, id')
+        .eq('email', session.user.email)
+        .single();
+
+      // Obtener el booking actual para calcular nuevos totales
+      const { data: currentBooking } = await supabase
+        .from('bookings')
+        .select('*')
+        .eq('id', state.existingBookingId)
+        .single();
+
+      if (!currentBooking) {
+        alert('Error: No se encontró el booking');
+        return;
+      }
+
+      console.log('[Calculator] 📋 Booking actual:', currentBooking);
+
+      // Calcular nuevos totales
+      const newVolume = selectedItems.reduce((sum, item) => sum + (item.volume * item.quantity), 0);
+      const newItemsCount = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
+      
+      // ✅ Convertir explícitamente a número para evitar concatenación de strings
+      const previousVolume = Number(currentBooking.total_volume) || 0;
+      const updatedTotalVolume = previousVolume + newVolume;
+      const updatedTotalItems = (Number(currentBooking.total_items) || 0) + newItemsCount;
+
+      // Calcular nuevo precio mensual basado en el volumen total actualizado
+      const newMonthlyPrice = calculateStoragePrice(updatedTotalVolume);
+
+      console.log('[Calculator] 📊 Nuevos totales:', {
+        volumeAnteriorRAW: currentBooking.total_volume,
+        volumeAnteriorTIPO: typeof currentBooking.total_volume,
+        volumeAnteriorNUMBER: previousVolume,
+        volumeNuevo: newVolume,
+        volumeTotal: updatedTotalVolume,
+        precioParaEsteVolumen: `Para ${updatedTotalVolume.toFixed(2)}m³ debería ser $${newMonthlyPrice.toLocaleString('es-CO')}`,
+        itemsAnteriores: currentBooking.total_items,
+        itemsNuevos: newItemsCount,
+        itemsTotal: updatedTotalItems,
+      });
+
+      // Función para generar código corto
+      const generateShortCode = () => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let code = '';
+        for (let i = 0; i < 6; i++) {
+          code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return code;
+      };
+
+      // Preparar items para insertar (estructura correcta de inventory)
+      const itemsToInsert = selectedItems.map(item => ({
+        booking_id: state.existingBookingId,
+        item_id: !item.isCustom && item.id && typeof item.id === "string" && item.id.match(/^[0-9a-f-]{36}$/i) ? item.id : null,
+        custom_item_id: null,
+        name: item.name,
+        quantity: Number(item.quantity ?? 1),
+        volume: Number(item.volume ?? 0),
+        is_custom: item.isCustom ?? false,
+        short_code: generateShortCode(),
+      }));
+
+      console.log('[Calculator] 📦 Items a insertar:', itemsToInsert.length);
+      console.log('[Calculator] 📦 Detalle de items:', itemsToInsert.map(i => ({
+        name: i.name,
+        quantity: i.quantity,
+        volume: i.volume,
+        is_custom: i.is_custom
+      })));
+
+      // 1. Insertar items en inventory
+      const { error: insertError } = await supabase
+        .from('inventory')
+        .insert(itemsToInsert);
+
+      if (insertError) {
+        console.error('[Calculator] ❌ Error insertando items:', insertError);
+        throw insertError;
+      }
+
+      console.log('[Calculator] ✅ Items guardados en inventory');
+
+      // 2. Actualizar el booking con nuevos totales
+      const { error: updateError } = await supabase
+        .from('bookings')
+        .update({
+          total_volume: updatedTotalVolume,
+          total_items: updatedTotalItems,
+          amount_monthly: newMonthlyPrice,
+        })
+        .eq('id', state.existingBookingId);
+
+      if (updateError) {
+        console.error('[Calculator] ❌ Error actualizando booking:', updateError);
+        throw updateError;
+      }
+
+      console.log('[Calculator] ✅ Booking actualizado con nuevos totales');
+
+      // ✅ NO crear nuevo pago - solo actualizar el monto mensual del booking
+      // La nueva cuota se cobrará automáticamente el siguiente mes
+      console.log('[Calculator] ℹ️ Monto mensual actualizado. No se requiere pago adicional inmediato.');
+      console.log('[Calculator] ℹ️ El nuevo monto ($' + newMonthlyPrice.toLocaleString('es-CO') + ') se cobrará en la próxima mensualidad.');
+
+      // Ir a confirmación con info actualizada
+      dispatch({ 
+        type: 'SAVE_ITEMS_TO_EXISTING', 
+        payload: { 
+          name: userData?.name || 'Usuario',
+          updateInfo: {
+            itemsAdded: newItemsCount,
+            volumeAdded: newVolume,
+            previousVolume: previousVolume,
+            newTotalVolume: updatedTotalVolume,
+            previousMonthlyPrice: Number(currentBooking.amount_monthly) || 0,
+            newMonthlyPrice: newMonthlyPrice,
+          },
+        } 
+      });
+    } catch (error) {
+      console.error('[Calculator] ❌ Error guardando items:', error);
+      alert('Error al guardar los items. Por favor intenta de nuevo.');
+    }
+  }, [state.existingBookingId, selectedItems]);
+
   const handleRemoveSelectedItem = useCallback(
     (id) => {
       const item = items.find((i) => i.id === id);
@@ -187,23 +439,26 @@ const Calculator = () => {
   );
 
   const { totalVolume, totalItems } = useMemo(() => {
-    return items.reduce(
+    const result = items.reduce(
       (acc, item) => {
-        acc.totalVolume += item.volume * item.quantity;
+        const itemVolume = item.volume * item.quantity;
+        console.log(`[CALCULATOR-VOLUME] Item: ${item.name}, volume: ${item.volume}m³, quantity: ${item.quantity}, total: ${itemVolume}m³`);
+        acc.totalVolume += itemVolume;
         acc.totalItems += item.quantity;
         return acc;
       },
       { totalVolume: 0, totalItems: 0 }
     );
+    console.log(`[CALCULATOR-VOLUME] 📊 TOTAL VOLUME: ${result.totalVolume.toFixed(3)}m³, TOTAL ITEMS: ${result.totalItems}`);
+    return result;
   }, [items]);
-
-  const selectedItems = useMemo(() => items.filter((item) => item.quantity > 0), [items]);
 
   // ✅ Precio mensual basado en volumen (mismo cálculo que FinalSummary)
   const totalPriceCOP = useMemo(() => {
     try {
       const price = calculateStoragePrice(totalVolume);
-      if (!price || Number.isNaN(price)) {
+      console.log(`[CALCULATOR-PRICE] 💰 Volume: ${totalVolume.toFixed(3)}m³ → Price: $${price.toLocaleString('es-CO')} COP`);
+      if (price === null || isNaN(price)) {
         console.warn('[CALCULATOR] totalPriceCOP inválido:', price, 'totalVolume:', totalVolume);
         return 0;
       }
@@ -318,9 +573,18 @@ const Calculator = () => {
             totalItems={totalItems}
             logisticsMethod={state.logisticsMethod}
             transportPrice={state.transportPrice}
+            isAddingToExisting={state.isAddingToExisting}
             onBack={() => dispatch({ type: 'GO_BACK' })}
             onGoToQuote={() => dispatch({ type: 'NAVIGATE_TO', payload: 'quoteRequest' })}
-            onBookService={() => dispatch({ type: 'NAVIGATE_TO', payload: 'booking' })}
+            onBookService={() => {
+              // Si está agregando items a booking existente, guardar directo
+              if (state.isAddingToExisting) {
+                handleSaveItemsToExisting();
+              } else {
+                // Flujo normal: ir a booking
+                dispatch({ type: 'NAVIGATE_TO', payload: 'booking' });
+              }
+            }}
           />
         );
 
@@ -393,6 +657,10 @@ const Calculator = () => {
           <ConfirmationScreen
             customerName={state.customerName}
             transactionId={state.transactionId} // ✅ Pasar transaction ID
+            isAddingToExisting={state.isAddingToExisting}
+            invoiceInfo={state.invoiceInfo} // ✅ Info de factura generada (legacy)
+            paymentInfo={state.paymentInfo} // ✅ Info de pago generado (legacy - para reservas nuevas)
+            updateInfo={state.updateInfo} // ✅ Info de actualización (para agregar items)
             onReset={() => {
               console.log('[Calculator] 🔄 Reset completo después de confirmación');
               resetToDefaults(); // ✅ Volver a items iniciales

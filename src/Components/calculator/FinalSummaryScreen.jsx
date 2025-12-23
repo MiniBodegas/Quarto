@@ -3,7 +3,7 @@ import { calculateStoragePrice } from '../../utils/pricing';
 import { Button, ScreenHeader } from '../index';
 import { saveStorageRequest } from '../../services/saveStorageRequest';
 
-const FinalSummaryScreen = ({ totalVolume, totalItems, logisticsMethod, transportPrice, onBack, onGoToQuote, onBookService }) => {
+const FinalSummaryScreen = ({ totalVolume, totalItems, logisticsMethod, transportPrice, isAddingToExisting, onBack, onGoToQuote, onBookService }) => {
     const formatCurrency = (value) => {
         return new Intl.NumberFormat('es-CO', {
             style: 'currency',
@@ -14,6 +14,7 @@ const FinalSummaryScreen = ({ totalVolume, totalItems, logisticsMethod, transpor
     };
 
     const storagePrice = calculateStoragePrice(totalVolume);
+    console.log(`[FINALSUMMARY] 📦 Volume: ${totalVolume.toFixed(3)}m³ → Storage: $${storagePrice.toLocaleString('es-CO')} + Transport: $${(transportPrice || 0).toLocaleString('es-CO')} = Total: $${(storagePrice + (logisticsMethod === 'Recogida' && transportPrice !== null ? transportPrice : 0)).toLocaleString('es-CO')}`);
 
     return (
         <div className="min-h-screen flex flex-col ">
@@ -53,18 +54,40 @@ const FinalSummaryScreen = ({ totalVolume, totalItems, logisticsMethod, transpor
                             </div>
                         </div>
 
-                        <div className="p-6 text-center bg-slate-50/90 rounded-2xl border border-slate-200">
-                            <p className="text-sm font-semibold text-[#012E58] mb-1">
-                                Valor mensual estimado
-                            </p>
-                            <p className="text-4xl font-extrabold text-[#012E58]">
-                                {formatCurrency(storagePrice)}
-                            </p>
-                            {logisticsMethod === 'Recogida' && transportPrice !== null && (
-                                <p className="text-xs text-[#012E58] mt-1">
-                                    + {formatCurrency(transportPrice)} de transporte el primer mes
+                        <div className="p-6 text-center bg-slate-50/90 rounded-2xl border border-slate-200 space-y-3">
+                            {/* Desglose de precios */}
+                            <div className="space-y-2 text-sm">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[#012E58]">Almacenamiento mensual:</span>
+                                    <span className="font-bold text-[#012E58]">{formatCurrency(storagePrice)}</span>
+                                </div>
+                                {logisticsMethod === 'Recogida' && transportPrice !== null && (
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[#012E58]">Transporte (pago único):</span>
+                                        <span className="font-bold text-[#012E58]">{formatCurrency(transportPrice)}</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Total a pagar hoy */}
+                            <div className="border-t border-slate-300 pt-3">
+                                <p className="text-sm font-semibold text-[#012E58] mb-1">
+                                    {logisticsMethod === 'Recogida' && transportPrice !== null 
+                                        ? 'Total primer pago'
+                                        : 'Valor mensual estimado'
+                                    }
                                 </p>
-                            )}
+                                <p className="text-4xl font-extrabold text-[#012E58]">
+                                    {formatCurrency(
+                                        storagePrice + (logisticsMethod === 'Recogida' && transportPrice !== null ? transportPrice : 0)
+                                    )}
+                                </p>
+                                {logisticsMethod === 'Recogida' && transportPrice !== null && (
+                                    <p className="text-xs text-[#012E58] mt-1">
+                                        Los meses siguientes: {formatCurrency(storagePrice)}/mes
+                                    </p>
+                                )}
+                            </div>
                         </div>
 
                         <div className="pt-4 space-y-3">
@@ -73,7 +96,7 @@ const FinalSummaryScreen = ({ totalVolume, totalItems, logisticsMethod, transpor
                                 onClick={onBookService}
                                 className="w-full !py-3 text-base font-bold shadow-lg hover:shadow-xl"
                             >
-                                Contratar el servicio
+                                {isAddingToExisting ? 'Agregar Items a mi Inventario' : 'Contratar el servicio'}
                             </Button>
 
                             {/* Secundarios alineados en fila */}
@@ -86,6 +109,7 @@ const FinalSummaryScreen = ({ totalVolume, totalItems, logisticsMethod, transpor
                                 >
                                     Volver
                                 </Button>
+                                {!isAddingToExisting && (
                                 <Button
                                     variant="outline"
                                     onClick={onGoToQuote}
@@ -93,6 +117,7 @@ const FinalSummaryScreen = ({ totalVolume, totalItems, logisticsMethod, transpor
                                 >
                                     Enviar cotización
                                 </Button>
+                                )}
                             </div>
                         </div>
                     </div>
