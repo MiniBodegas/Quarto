@@ -443,6 +443,7 @@ const BookingScreen = ({
       console.log("[Booking] ✅ Reserva creada exitosamente");
       console.log("[Booking] 📋 Booking ID:", bookingId);
       console.log("[Booking] 🔑 Token:", internalToken);
+      console.log("[Booking] ℹ️  La factura se generará automáticamente después del pago con Wompi");
       
       // ✅ Guardar datos para el modal y mostrarlo
       setSuccessData({

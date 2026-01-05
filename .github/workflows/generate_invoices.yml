@@ -1,0 +1,29 @@
+name: Generate monthly invoices (daily)
+
+on:
+  schedule:
+    - cron: '5 1 * * *' # cada día 01:05 UTC (ajusta si quieres otra hora)
+  workflow_dispatch: {} # permite ejecución manual desde la UI
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install backend deps
+        working-directory: Backend
+        run: npm ci
+
+      - name: Run invoice generator
+        working-directory: Backend
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DEFAULT_PRICE_PER_M3: ${{ secrets.DEFAULT_PRICE_PER_M3 }}
+        run: node scripts/generate_monthly_invoices.js

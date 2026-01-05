@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "dev:mail": "tsx mail/mail.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "generate:invoices": "node scripts/generate_monthly_invoices.js"
   },
   "dependencies": {
     "@react-email/components": "^1.0.1",
