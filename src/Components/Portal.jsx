@@ -27,11 +27,12 @@ const Header = ({ onToggleSidebar, userName }) => (
 );
 
 const Sidebar = ({ currentView, setView, onSignOut, isOpen, companyType }) => {
-  const navItems = [
+    // Note: 'Personas Autorizadas' has been intentionally removed/blocked from the sidebar.
+    const navItems = [
     { id: 'dashboard', name: 'Panel de Control', icon: <span className="material-symbols-outlined">grid_view</span> },
     { id: 'inventory', name: 'Mi Inventario', icon: <span className="material-symbols-outlined">inventory_2</span> },
     { id: 'invoices', name: 'Facturas', icon: <span className="material-symbols-outlined">receipt_long</span> },
-    { id: 'authorized', name: 'Personas Autorizadas', icon: <span className="material-symbols-outlined">list_alt_check</span> },
+    // Authorized persons intentionally hidden
     { id: 'users', name: 'Gestionar Usuarios', icon: <span className="material-symbols-outlined">group</span>, companyOnly: true },
     { id: 'contact', name: 'Datos de Contacto', icon: <span className="material-symbols-outlined">person</span> },
   ];
@@ -115,7 +116,16 @@ const Portal = ({
       case 'invoices':
         return <InvoicesList invoices={invoices} onUpdateInvoice={onUpdateInvoice} onUpdateMultipleInvoices={onUpdateMultipleInvoices} addNotification={addNotification} />;
       case 'authorized':
-        return <AuthorizedPersons persons={authorizedPersons} onAddPerson={onAddPerson} onRemovePerson={onRemovePerson} companyType={company.type} addNotification={addNotification} />;
+        // This section is intentionally blocked in the portal UI.
+        return (
+          <div className="max-w-xl mx-auto bg-white rounded-md shadow-sm p-6">
+            <h2 className="text-lg font-bold mb-2">Personas autorizadas (bloqueado)</h2>
+            <p className="text-sm text-text-secondary mb-4">La gestión de personas autorizadas está deshabilitada en este portal. Si necesitas acceso, contacta al administrador.</p>
+            <div>
+              <button onClick={() => handleSetView('dashboard')} className="inline-flex items-center px-4 py-2 bg-primary text-white rounded-md">Volver al panel</button>
+            </div>
+          </div>
+        );
       case 'contact':
         return <ContactInfo company={company} onUpdateProfile={onUpdateProfile} />;
       case 'users':

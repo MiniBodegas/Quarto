@@ -102,20 +102,28 @@ async function createAlegraInvoice(bookingId, clientData, invoiceData) {
   const ALEGRA_API_URL = process.env.ALEGRA_API_URL || 'https://api.alegra.com/api/v1';
   const ALEGRA_USERNAME = process.env.ALEGRA_USERNAME;
   const ALEGRA_PASSWORD = process.env.ALEGRA_PASSWORD;
+  const ALEGRA_API_TOKEN = process.env.ALEGRA_API_TOKEN; // optional bearer token
 
-  if (!ALEGRA_USERNAME || !ALEGRA_PASSWORD) {
+  // At least one auth method must be present: API token or username+password
+  if (!ALEGRA_API_TOKEN && (!ALEGRA_USERNAME || !ALEGRA_PASSWORD)) {
     return { 
       success: false, 
-      error: "Credenciales de Alegra no configuradas" 
+      error: "Credenciales de Alegra no configuradas (ALEGRA_API_TOKEN o ALEGRA_USERNAME+ALEGRA_PASSWORD)" 
     };
   }
 
-  const authHeader = Buffer.from(`${ALEGRA_USERNAME}:${ALEGRA_PASSWORD}`).toString('base64');
   const headers = {
-    'Authorization': `Basic ${authHeader}`,
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   };
+
+  // Prefer Bearer token if provided, otherwise use Basic auth
+  if (ALEGRA_API_TOKEN) {
+    headers['Authorization'] = `Bearer ${ALEGRA_API_TOKEN}`;
+  } else {
+    const authHeader = Buffer.from(`${ALEGRA_USERNAME}:${ALEGRA_PASSWORD}`).toString('base64');
+    headers['Authorization'] = `Basic ${authHeader}`;
+  }
 
   try {
     // 1️⃣ Crear o buscar cliente en Alegra
@@ -137,14 +145,35 @@ async function createAlegraInvoice(bookingId, clientData, invoiceData) {
     if (!alegraClient) {
       const docTypeMap = { 'CC': 'CC', 'CE': 'CE', 'PP': 'passport', 'NIT': 'NIT' };
 
+      // Prepare identification and type more defensively — Alegra exige identificationType cuando hay identificación
+      const identification = clientData.booking_type === 'company' ? clientData.company_nit : clientData.document_number;
+      let identificationType = null;
+
+      if (clientData.booking_type === 'company') {
+        identificationType = 'NIT';
+      } else if (clientData.document_type) {
+        identificationType = docTypeMap[clientData.document_type] || clientData.document_type;
+      } else if (identification) {
+        // Default to CC when a numeric/document value exists but no type provided
+        identificationType = 'CC';
+      }
+
       const clientPayload = {
         name: clientData.booking_type === 'company' ? clientData.company_name : clientData.name,
         email: clientData.email,
         phonePrimary: clientData.phone,
-        identification: clientData.booking_type === 'company' ? clientData.company_nit : clientData.document_number,
-        identificationType: clientData.booking_type === 'company' ? 'NIT' : docTypeMap[clientData.document_type] || 'CC',
         type: clientData.booking_type === 'company' ? 'company' : 'client'
       };
+
+      if (identification) clientPayload.identification = identification;
+      if (identificationType) clientPayload.identificationType = identificationType;
+
+      // Ensure identificationType is set if identification exists (defensive default 'CC')
+      if (clientPayload.identification && !clientPayload.identificationType) {
+        clientPayload.identificationType = 'CC';
+      }
+
+      console.log('[ALEGRA] Cliente payload:', JSON.stringify(clientPayload, null, 2));
 
       const createResponse = await fetch(`${ALEGRA_API_URL}/contacts`, {
         method: 'POST',
@@ -164,42 +193,55 @@ async function createAlegraInvoice(bookingId, clientData, invoiceData) {
     // 2️⃣ Generar items de la factura
     const items = [];
     
+    // Read tax ID from env (optional). If not set, do not include tax entries.
+    const taxId = process.env.ALEGRA_TAX_IVA_ID ? parseInt(process.env.ALEGRA_TAX_IVA_ID, 10) : null;
+
     if (invoiceData.amount_monthly > 0) {
       const monthlyPrice = invoiceData.amount_monthly;
       const ivaAmount = monthlyPrice * 0.19;
 
-      items.push({
+      const storageItem = {
         id: parseInt(process.env.ALEGRA_PRODUCT_STORAGE_ID || '1'),
         reference: 'STORAGE-MONTHLY',
         description: `Almacenamiento ${invoiceData.total_volume} m³ - Mensual`,
         quantity: 1,
-        price: monthlyPrice,
-        tax: [{
-          id: parseInt(process.env.ALEGRA_TAX_IVA_ID || '1'),
+        price: monthlyPrice
+      };
+
+      if (taxId) {
+        storageItem.tax = [{
+          id: taxId,
           name: 'IVA',
           percentage: 19,
           amount: ivaAmount
-        }]
-      });
+        }];
+      }
+
+      items.push(storageItem);
     }
 
     if (invoiceData.transport_price > 0) {
       const transportPrice = invoiceData.transport_price;
       const ivaAmount = transportPrice * 0.19;
 
-      items.push({
+      const transportItem = {
         id: parseInt(process.env.ALEGRA_PRODUCT_TRANSPORT_ID || '2'),
         reference: 'TRANSPORT',
         description: `Transporte - ${invoiceData.logistics_method}`,
         quantity: 1,
-        price: transportPrice,
-        tax: [{
-          id: parseInt(process.env.ALEGRA_TAX_IVA_ID || '1'),
+        price: transportPrice
+      };
+
+      if (taxId) {
+        transportItem.tax = [{
+          id: taxId,
           name: 'IVA',
           percentage: 19,
           amount: ivaAmount
-        }]
-      });
+        }];
+      }
+
+      items.push(transportItem);
     }
 
     // 3️⃣ Crear factura
@@ -214,15 +256,22 @@ async function createAlegraInvoice(bookingId, clientData, invoiceData) {
       return `${year}-${month}-${day}`;
     };
 
+    // Decide whether to request stamp (fiscal seal) based on env var. Many Alegra plans
+    // restrict automatic stamping; default to false to maximize compatibility.
+    const generateStamp = process.env.ALEGRA_GENERATE_STAMP === 'true';
+
     const invoicePayload = {
       date: formatDate(today),
       dueDate: formatDate(dueDate),
       client: { id: alegraClient.id },
       items: items,
       observations: `Reserva #${bookingId}\nVolumen: ${invoiceData.total_volume} m³\nItems: ${invoiceData.total_items}\nLogística: ${invoiceData.logistics_method || 'N/A'}`,
-      termsConditions: 'Pago mediante Wompi. Servicio mensual con renovación automática.',
-      stamp: { generateStamp: true }
+      termsConditions: 'Pago mediante Wompi. Servicio mensual con renovación automática.'
     };
+
+    if (generateStamp) {
+      invoicePayload.stamp = { generateStamp: true };
+    }
 
     console.log("[ALEGRA] Creando factura:", JSON.stringify(invoicePayload, null, 2));
 
@@ -505,12 +554,20 @@ app.post("/api/alegra/register-payment", async (req, res) => {
     const ALEGRA_API_URL = process.env.ALEGRA_API_URL || 'https://api.alegra.com/api/v1';
     const ALEGRA_USERNAME = process.env.ALEGRA_USERNAME;
     const ALEGRA_PASSWORD = process.env.ALEGRA_PASSWORD;
+    const ALEGRA_API_TOKEN = process.env.ALEGRA_API_TOKEN;
 
-    const authHeader = Buffer.from(`${ALEGRA_USERNAME}:${ALEGRA_PASSWORD}`).toString('base64');
     const headers = {
-      'Authorization': `Basic ${authHeader}`,
       'Content-Type': 'application/json'
     };
+
+    if (ALEGRA_API_TOKEN) {
+      headers['Authorization'] = `Bearer ${ALEGRA_API_TOKEN}`;
+    } else if (ALEGRA_USERNAME && ALEGRA_PASSWORD) {
+      const authHeader = Buffer.from(`${ALEGRA_USERNAME}:${ALEGRA_PASSWORD}`).toString('base64');
+      headers['Authorization'] = `Basic ${authHeader}`;
+    } else {
+      return res.status(500).json({ success: false, error: 'Alegra credentials not configured' });
+    }
 
     const formatDate = (date) => {
       const d = date ? new Date(date) : new Date();
