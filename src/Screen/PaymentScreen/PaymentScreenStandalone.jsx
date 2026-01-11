@@ -63,8 +63,29 @@ const PaymentScreenStandalone = () => {
         return;
       }
 
+      let wompiReference = booking.wompi_reference;
+      
+      // Si no existe wompi_reference, generar uno nuevo y guardarlo en BD
+      if (!wompiReference) {
+        wompiReference = `QUARTO_${bookingId}_${Date.now()}`;
+        console.log('[PaymentStandalone] 📝 Generando nuevo wompi_reference:', wompiReference);
+        
+        // Guardar en BD antes de usarlo (crítico para que el webhook lo encuentre)
+        const { error: updateError } = await supabase
+          .from('bookings')
+          .update({ wompi_reference: wompiReference })
+          .eq('id', bookingId);
+        
+        if (updateError) {
+          console.error('[PaymentStandalone] ⚠️ Error guardando wompi_reference:', updateError);
+          setSigError('No se pudo generar la referencia de pago.');
+          return;
+        }
+        console.log('[PaymentStandalone] ✅ wompi_reference guardado en BD');
+      }
+
       const wompiPayload = {
-        reference: booking.wompi_reference || `QUARTO_${bookingId}_${Date.now()}`,
+        reference: wompiReference,
         amountInCents: Math.round((booking.amount_total || 0) * 100),
         currency: 'COP',
         bookingId: booking.id,
