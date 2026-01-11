@@ -1,6 +1,8 @@
 // src/api.js
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 export async function adminLogin(email, password) {
-  const res = await fetch('http://localhost:3000/auth/admin-login', {
+  const res = await fetch(`${API_URL}/auth/admin-login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
@@ -9,7 +11,7 @@ export async function adminLogin(email, password) {
 }
 
 export async function createAdmin(email, password, name) {
-  const res = await fetch('http://localhost:3000/auth/admin-register', {
+  const res = await fetch(`${API_URL}/auth/admin-register`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password, name }),
@@ -18,7 +20,7 @@ export async function createAdmin(email, password, name) {
 }
 
 export async function getAdmins() {
-  const res = await fetch('http://localhost:3000/auth/admins', {
+  const res = await fetch(`${API_URL}/auth/admins`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
   });
@@ -26,7 +28,7 @@ export async function getAdmins() {
 }
 
 export async function getUsersWithBookings() {
-  const res = await fetch('http://localhost:3000/api/admin/users-with-bookings', {
+  const res = await fetch(`${API_URL}/api/admin/users-with-bookings`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
   });
@@ -34,7 +36,7 @@ export async function getUsersWithBookings() {
 }
 
 export async function getInvoicesWithUsers() {
-  const res = await fetch('http://localhost:3000/api/admin/invoices-with-users', {
+  const res = await fetch(`${API_URL}/api/admin/invoices-with-users`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
   });
@@ -42,7 +44,7 @@ export async function getInvoicesWithUsers() {
 }
 
 export async function getStorageByUser() {
-  const res = await fetch('http://localhost:3000/api/admin/storage-by-user', {
+  const res = await fetch(`${API_URL}/api/admin/storage-by-user`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
   });
@@ -50,7 +52,7 @@ export async function getStorageByUser() {
 }
 
 export async function getClientsComplete() {
-  const res = await fetch('http://localhost:3000/api/admin/clients-complete', {
+  const res = await fetch(`${API_URL}/api/admin/clients-complete`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json' },
   });

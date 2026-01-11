@@ -93,9 +93,19 @@ const AdminClients = () => {
 
     return (
         <div>
-            <div className="mb-6">
-                <h1 className="text-3xl font-bold text-text-primary">Gestión de Clientes</h1>
-                <p className="text-text-secondary mt-1">Información completa de usuarios, metraje y facturas.</p>
+            <div className="mb-6 flex justify-between items-center">
+                <div>
+                    <h1 className="text-3xl font-bold text-text-primary">Gestión de Clientes</h1>
+                    <p className="text-text-secondary mt-1">Información completa de usuarios, metraje y facturas.</p>
+                </div>
+                <button
+                    onClick={loadClients}
+                    disabled={loading}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition disabled:opacity-50"
+                >
+                    <span className="material-symbols-outlined text-lg">refresh</span>
+                    {loading ? 'Cargando...' : 'Refrescar'}
+                </button>
             </div>
 
             {error && (

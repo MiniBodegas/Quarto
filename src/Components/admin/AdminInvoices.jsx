@@ -19,8 +19,41 @@ const AdminInvoices = () => {
             setLoading(true);
             const result = await getInvoicesWithUsers();
             
+            console.log("[AdminInvoices] ✅ DATOS RECIBIDOS DEL BACKEND:");
+            console.log("Total:", result.data?.length);
+            if (result.data && result.data.length > 0) {
+              console.log("PRIMEROS 3:");
+              result.data.slice(0, 3).forEach((b, idx) => {
+                console.log(`  [${idx}] ID: ${b.id}, Name: ${b.name}, payment_status: "${b.payment_status}"`);
+              });
+            }
+            
             if (result.success && result.data) {
-                setInvoices(result.data);
+                // Mapear datos de la BD a formato esperado por el componente
+                const mappedInvoices = result.data.map(booking => ({
+                    id: booking.id,
+                    name: booking.name,
+                    email: booking.email,
+                    phone: booking.phone,
+                    company_name: booking.company_name,
+                    amount: booking.amount_monthly,
+                    totalAmount: booking.amount_total,
+                    status: booking.payment_status,
+                    createdDate: booking.created_at,
+                    volume: booking.total_volume,
+                    items: booking.total_items
+                }));
+                
+                console.log("[AdminInvoices] ✅ DATOS MAPEADOS:");
+                console.log("Total mapeados:", mappedInvoices.length);
+                if (mappedInvoices.length > 0) {
+                  console.log("PRIMEROS 3 MAPEADOS:");
+                  mappedInvoices.slice(0, 3).forEach((inv, idx) => {
+                    console.log(`  [${idx}] Name: ${inv.name}, status: "${inv.status}"`);
+                  });
+                }
+                
+                setInvoices(mappedInvoices);
                 setError(null);
             } else {
                 setError(result.error || 'Error al cargar las facturas');
@@ -88,9 +121,19 @@ const AdminInvoices = () => {
 
     return (
         <div>
-            <div className="mb-6">
-                <h1 className="text-3xl font-bold text-text-primary">Registro de Facturas</h1>
-                <p className="text-text-secondary mt-1">Consulta y filtra el historial completo de facturación.</p>
+            <div className="mb-6 flex justify-between items-center">
+                <div>
+                    <h1 className="text-3xl font-bold text-text-primary">Registro de Facturas</h1>
+                    <p className="text-text-secondary mt-1">Consulta y filtra el historial completo de facturación.</p>
+                </div>
+                <button
+                    onClick={loadInvoices}
+                    disabled={loading}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition disabled:opacity-50"
+                >
+                    <span className="material-symbols-outlined text-lg">refresh</span>
+                    {loading ? 'Cargando...' : 'Refrescar'}
+                </button>
             </div>
 
             {error && (

@@ -25,7 +25,23 @@ const AdminDashboard = () => {
             ]);
 
             if (clientsRes.success) setClients(clientsRes.data || []);
-            if (invoicesRes.success) setInvoices(invoicesRes.data || []);
+            if (invoicesRes.success) {
+                // Mapear datos de la BD a formato esperado
+                const mappedInvoices = (invoicesRes.data || []).map(booking => ({
+                    id: booking.id,
+                    name: booking.name,
+                    email: booking.email,
+                    phone: booking.phone,
+                    company_name: booking.company_name,
+                    amount: booking.amount_monthly,
+                    totalAmount: booking.amount_total,
+                    status: booking.payment_status,
+                    createdDate: booking.created_at,
+                    volume: booking.total_volume,
+                    items: booking.total_items
+                }));
+                setInvoices(mappedInvoices);
+            }
             if (storageRes.success) setStorage(storageRes.data || []);
             
             setError(null);
@@ -89,9 +105,19 @@ const AdminDashboard = () => {
 
     return (
         <div>
-            <div className="mb-6">
-                <h1 className="text-3xl font-bold text-text-primary">Dashboard General</h1>
-                <p className="text-text-secondary mt-1">Resumen consolidado de toda la operación.</p>
+            <div className="mb-6 flex justify-between items-center">
+                <div>
+                    <h1 className="text-3xl font-bold text-text-primary">Dashboard General</h1>
+                    <p className="text-text-secondary mt-1">Resumen consolidado de toda la operación.</p>
+                </div>
+                <button
+                    onClick={loadDashboardData}
+                    disabled={loading}
+                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition disabled:opacity-50"
+                >
+                    <span className="material-symbols-outlined text-lg">refresh</span>
+                    {loading ? 'Cargando...' : 'Refrescar'}
+                </button>
             </div>
 
             {error && (

@@ -294,16 +294,23 @@ app.get("/api/admin/users-with-bookings", async (req, res) => {
 /**
  * ✅ Endpoint para obtener facturas/pagos con info de usuario
  * GET /api/admin/invoices-with-users
+ * 
+ * Query SQL equivalente:
+ * SELECT id, name, email, phone, company_name, amount_monthly, amount_total, 
+ *        payment_status, created_at, total_volume, total_items
+ * FROM bookings
+ * ORDER BY created_at DESC;
  */
 app.get("/api/admin/invoices-with-users", async (req, res) => {
   try {
-    // Traer todos los pagos/bookings
+    // Traer datos DIRECTO de la BD sin procesamiento
     const { data: bookings, error: bookingsError } = await supabase
       .from("bookings")
-      .select("*")
+      .select("id, name, email, phone, company_name, amount_monthly, amount_total, payment_status, created_at, total_volume, total_items")
       .order("created_at", { ascending: false });
 
     if (bookingsError) {
+      console.error("[INVOICES-WITH-USERS] ❌ Error:", bookingsError);
       return res.status(500).json({
         success: false,
         error: "Error cargando bookings",
@@ -311,28 +318,31 @@ app.get("/api/admin/invoices-with-users", async (req, res) => {
       });
     }
 
-    // Mapear a formato de facturas
-    const invoices = (bookings || []).map(booking => ({
-      id: booking.id,
-      name: booking.name,
-      email: booking.email,
-      phone: booking.phone,
-      company_name: booking.company_name,
-      amount: booking.amount_monthly,
-      totalAmount: booking.amount_total,
-      status: booking.payment_status,
-      createdDate: booking.created_at,
-      volume: booking.total_volume,
-      items: booking.total_items
-    }));
+    console.log("[INVOICES-WITH-USERS] ✅ DATOS DE LA TABLA BOOKINGS:");
+    console.log("Total bookings:", bookings?.length || 0);
+    if (bookings && bookings.length > 0) {
+      console.log("PRIMEROS 3 BOOKINGS:");
+      bookings.slice(0, 3).forEach((b, idx) => {
+        console.log(`  [${idx}] ID: ${b.id}, Name: ${b.name}, Status: "${b.payment_status}" (type: ${typeof b.payment_status})`);
+      });
+      
+      // Contar por status
+      const statusCount = {};
+      bookings.forEach(b => {
+        const s = b.payment_status || "NULL";
+        statusCount[s] = (statusCount[s] || 0) + 1;
+      });
+      console.log("Resumen por status:", statusCount);
+    }
 
+    // Retornar directamente sin transformación
     res.json({
       success: true,
-      count: invoices.length,
-      data: invoices
+      count: bookings?.length || 0,
+      data: bookings || []
     });
   } catch (err) {
-    console.error("[ADMIN] Error en invoices-with-users:", err);
+    console.error("[INVOICES-WITH-USERS] ❌ Error:", err);
     res.status(500).json({
       success: false,
       error: "Error en servidor",
@@ -774,16 +784,30 @@ async function createAlegraInvoice(bookingId, clientData, invoiceData) {
  * Importante:
  * - Wompi pega server-to-server (sin Origin) → CORS no lo bloquea
  */
+// ✅ LOG WEBHOOK CALLS
+app.all("/api/wompi/webhook", (req, res, next) => {
+  console.log("═══════════════════════════════════════════════════════════");
+  console.log("🔔 [WOMPI WEBHOOK] LLAMADA RECIBIDA", new Date().toISOString());
+  console.log("═══════════════════════════════════════════════════════════");
+  console.log("Método:", req.method);
+  console.log("Headers:", JSON.stringify(req.headers, null, 2));
+  console.log("Body:", JSON.stringify(req.body, null, 2));
+  console.log("═══════════════════════════════════════════════════════════");
+  next();
+});
+
 app.post("/api/wompi/webhook", async (req, res) => {
   try {
-    console.log("[WOMPI WEBHOOK] Evento recibido:", JSON.stringify(req.body, null, 2));
+    console.log("[WOMPI WEBHOOK] ⭐ INICIANDO PROCESAMIENTO");
 
     const { event, data } = req.body || {};
     if (!event || !data?.transaction) {
+      console.warn("[WOMPI WEBHOOK] ⚠️ Payload inválido:", { event, hasTransaction: !!data?.transaction });
       return res.status(200).json({ received: true, warning: "payload_invalido" });
     }
 
     if (event !== "transaction.updated") {
+      console.log("[WOMPI WEBHOOK] ℹ️ Evento ignorado (no es transaction.updated):", event);
       return res.status(200).json({ received: true, message: "Evento no procesado" });
     }
 
@@ -796,7 +820,7 @@ app.post("/api/wompi/webhook", async (req, res) => {
     const currency = tx.currency;
     const payment_method_type = tx.payment_method_type;
 
-    console.log("[WOMPI] Transaction Update:");
+    console.log("[WOMPI] 📊 Transaction Update Recibida:");
     console.log("  - ID:", transactionId);
     console.log("  - Reference:", reference);
     console.log("  - Status:", status);
@@ -804,26 +828,40 @@ app.post("/api/wompi/webhook", async (req, res) => {
     console.log("  - Payment Method:", payment_method_type);
 
     // 1️⃣ Buscar booking por wompi_reference
+    console.log("[WOMPI] 🔍 Buscando booking con wompi_reference:", reference);
     const { data: booking, error: bookingError } = await supabase
       .from("bookings")
-      .select("id")
+      .select("id, name, email, wompi_reference")
       .eq("wompi_reference", reference)
       .maybeSingle();
 
     if (bookingError) {
-      console.error("[WOMPI WEBHOOK] Error buscando booking:", bookingError);
+      console.error("[WOMPI WEBHOOK] ❌ Error buscando booking:", bookingError);
       return res.status(200).json({ received: true, warning: "db_error_booking_lookup" });
     }
 
     // Si no existe booking, igual respondemos 200 para que Wompi no lo marque como fallido
     if (!booking) {
-      console.warn("[WOMPI WEBHOOK] No booking con referencia:", reference);
+      console.warn("[WOMPI WEBHOOK] ❌ NO ENCONTRADO: Booking con referencia:", reference);
+      console.warn("[WOMPI WEBHOOK] 🔎 Buscando otros bookings para debugging...");
+      
+      // Debug: listar bookings recientes para ver qué referencias existen
+      const { data: recentBookings } = await supabase
+        .from("bookings")
+        .select("id, wompi_reference, payment_status, created_at")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      
+      console.warn("[WOMPI WEBHOOK] Últimos 5 bookings:", recentBookings);
+      
       return res.status(200).json({ received: true, warning: "booking_not_found" });
     }
 
     const bookingId = booking.id;
+    console.log("[WOMPI] ✅ Booking encontrado:", bookingId, "(" + booking.name + ")");
 
     // 2️⃣ Actualizar booking con estado del pago
+    console.log("[WOMPI] 💾 Actualizando booking", bookingId, "- Nuevo status:", status);
     const { error: updateError } = await supabase
       .from("bookings")
       .update({
@@ -834,11 +872,13 @@ app.post("/api/wompi/webhook", async (req, res) => {
       .eq("id", bookingId);
 
     if (updateError) {
-      console.error("[WOMPI WEBHOOK] Error actualizando booking:", updateError);
+      console.error("[WOMPI WEBHOOK] ❌ Error actualizando booking:", updateError);
       return res.status(200).json({ received: true, warning: "db_error_booking_update" });
     }
+    console.log("[WOMPI] ✅ Booking actualizado correctamente");
 
     // 3️⃣ Insert/Upsert en payments (idempotente)
+    console.log("[WOMPI] 💾 Registrando pago en tabla 'payments'...");
     const { error: paymentError } = await supabase
       .from("payments")
       .upsert(
@@ -856,11 +896,14 @@ app.post("/api/wompi/webhook", async (req, res) => {
       );
 
     if (paymentError) {
-      console.error("[WOMPI WEBHOOK] Error guardando payment:", paymentError);
+      console.error("[WOMPI WEBHOOK] ❌ Error guardando payment:", paymentError);
       return res.status(200).json({ received: true, warning: "db_error_payment_upsert" });
     }
+    console.log("[WOMPI] ✅ Pago registrado en tabla 'payments' correctamente");
 
-    console.log("[WOMPI WEBHOOK] OK booking:", bookingId, "→", status);
+    console.log("[WOMPI WEBHOOK] ✅✅✅ PROCESAMIENTO COMPLETADO EXITOSAMENTE");
+    console.log("[WOMPI WEBHOOK] Summary:", { bookingId, transactionId, status });
+    console.log("═══════════════════════════════════════════════════════════");
 
     // 4️⃣ Si el pago fue APROBADO, crear factura en Alegra automáticamente
     if (status === "APPROVED") {
@@ -1191,6 +1234,150 @@ app.post("/api/invoices/generate-monthly", async (req, res) => {
   } catch (err) {
     console.error('[INVOICES] Error generando facturas mensuales:', err);
     return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 🔍 DEBUG - Ver tabla PAYMENTS
+app.get("/api/debug/payments", async (req, res) => {
+  try {
+    console.log("[DEBUG] 📋 Verificando tabla PAYMENTS...");
+    
+    const { data: payments, error } = await supabase
+      .from("payments")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(20);
+    
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+    
+    console.log("[DEBUG] Encontrados", payments?.length || 0, "pagos");
+    
+    const statusCount = {};
+    payments?.forEach(p => {
+      statusCount[p.status] = (statusCount[p.status] || 0) + 1;
+    });
+    
+    return res.json({
+      total: payments?.length || 0,
+      statusBreakdown: statusCount,
+      payments: payments || []
+    });
+  } catch (err) {
+    console.error("[DEBUG] Error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// 🔍 DEBUG ENDPOINT - Ver todas las facturas con status
+app.get("/api/debug/all-invoices", async (req, res) => {
+  try {
+    console.log("[DEBUG] 📋 Trayendo TODAS las facturas...");
+    
+    const { data: bookings, error } = await supabase
+      .from("bookings")
+      .select("id, name, email, payment_status, amount_total, amount_monthly, created_at")
+      .order("created_at", { ascending: false })
+      .limit(20);
+    
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+    
+    console.log("[DEBUG] Encontradas", bookings?.length || 0, "facturas");
+    
+    // Analizar status
+    const statuses = {};
+    bookings?.forEach(b => {
+      const s = b.payment_status || "NULL";
+      statuses[s] = (statuses[s] || 0) + 1;
+    });
+    
+    return res.json({
+      total: bookings?.length || 0,
+      statusBreakdown: statuses,
+      invoices: bookings?.map(b => ({
+        id: b.id,
+        name: b.name,
+        email: b.email,
+        payment_status: b.payment_status,
+        status_type: typeof b.payment_status,
+        status_is_null: b.payment_status === null,
+        amount_total: b.amount_total,
+        amount_monthly: b.amount_monthly,
+        created_at: b.created_at
+      })) || []
+    });
+  } catch (err) {
+    console.error("[DEBUG] Error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// 🔍 DEBUG ENDPOINT - Ver estado de booking y tabla payments
+app.get("/api/debug/booking/:bookingId", async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    
+    console.log("[DEBUG] 🔍 Verificando estado de booking:", bookingId);
+    
+    const { data: booking, error: bookingError } = await supabase
+      .from("bookings")
+      .select("id, wompi_reference, wompi_transaction_id, payment_status, name, email, created_at, updated_at")
+      .eq("id", bookingId)
+      .single();
+    
+    if (bookingError) {
+      return res.status(404).json({ error: "Booking no encontrado", details: bookingError });
+    }
+    
+    const { data: payments, error: paymentsError } = await supabase
+      .from("payments")
+      .select("*")
+      .eq("booking_id", bookingId);
+    
+    return res.json({
+      booking: booking || null,
+      payments: payments || [],
+      status: {
+        hasBooking: !!booking,
+        hasWompiReference: !!booking?.wompi_reference,
+        hasTransactionId: !!booking?.wompi_transaction_id,
+        hasPaymentRecord: payments && payments.length > 0,
+        paymentStatus: booking?.payment_status
+      }
+    });
+  } catch (err) {
+    console.error("[DEBUG] Error:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// 🔍 DEBUG ENDPOINT - Listar últimos bookings
+app.get("/api/debug/bookings/recent/:limit", async (req, res) => {
+  try {
+    const limit = parseInt(req.params.limit) || 10;
+    
+    console.log("[DEBUG] 📋 Listando últimos", limit, "bookings");
+    
+    const { data: bookings, error } = await supabase
+      .from("bookings")
+      .select("id, wompi_reference, wompi_transaction_id, payment_status, name, email, created_at")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+    
+    return res.json({
+      total: bookings?.length || 0,
+      bookings: bookings || []
+    });
+  } catch (err) {
+    console.error("[DEBUG] Error:", err);
+    return res.status(500).json({ error: err.message });
   }
 });
 
