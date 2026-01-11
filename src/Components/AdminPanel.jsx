@@ -4,7 +4,6 @@ import { QUARTO_LOGO_BASE64 } from '../utils/constants';
 import AdminDashboard from './admin/AdminDashboard';
 import AdminClients from './admin/AdminClients';
 import AdminStorage from './admin/AdminStorage';
-import AdminAuthorized from './admin/AdminAuthorized';
 import AdminInvoices from './admin/AdminInvoices';
 import AdminStatements from './admin/AdminStatements';
 import AdminAccessControl from './admin/AdminAccessControl';
@@ -37,7 +36,6 @@ const Sidebar = ({ currentView, setView, onSignOut, isOpen }) => {
     { id: 'access_control', name: 'Control de Acceso', icon: <span className="material-symbols-outlined">security</span> },
     { id: 'clients', name: 'Clientes', icon: <span className="material-symbols-outlined">group</span> },
     { id: 'storage', name: 'Bodegas', icon: <span className="material-symbols-outlined">warehouse</span> },
-    { id: 'authorized', name: 'Personas Autorizadas', icon: <span className="material-symbols-outlined">badge</span> },
     { id: 'invoices', name: 'Facturas', icon: <span className="material-symbols-outlined">receipt_long</span> },
     { id: 'statements', name: 'Estado de Cuenta', icon: <span className="material-symbols-outlined">account_balance_wallet</span> },
   ];
@@ -105,19 +103,11 @@ const AdminPanel = (props) => {
                             onRegisterAccess={onRegisterAccess}
                         />;
             case 'clients':
-                return <AdminClients 
-                            companyProfiles={companyProfiles} 
-                            loginUsers={loginUsers}
-                            onCreateClient={onCreateClient}
-                            onCreateMultipleClients={onCreateMultipleClients}
-                            onUpdateClient={onUpdateClient}
-                        />;
+                return <AdminClients />;
             case 'storage':
-                return <AdminStorage storageUnits={storageUnits} companyProfiles={companyProfiles} />;
-            case 'authorized':
-                return <AdminAuthorized authorizedPersons={authorizedPersons} companyProfiles={companyProfiles} />;
+                return <AdminStorage />;
             case 'invoices':
-                return <AdminInvoices invoices={invoices} companyProfiles={companyProfiles} />;
+                return <AdminInvoices />;
             case 'statements':
                 return <AdminStatements invoices={invoices} companyProfiles={companyProfiles} />;
             case 'profile':

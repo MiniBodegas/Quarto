@@ -53,6 +53,327 @@ app.get("/health", (req, res) => res.json({ ok: true }));
 app.get("/api/wompi/ping", (req, res) => res.json({ ok: true, hasWebhook: true }));
 
 /**
+ * ✅ Endpoint para login de Admin
+ * Body:
+ * {
+ *   email: string,
+ *   password: string
+ * }
+ */
+app.post("/auth/admin-login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Email y contraseña son requeridos" 
+      });
+    }
+
+    // Validación de credenciales de desarrollo
+    const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@quarto.com';
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'password123';
+
+    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
+      return res.json({
+        success: true,
+        data: {
+          id: 'admin-001',
+          email: email,
+          role: 'admin',
+          name: 'Administrador'
+        }
+      });
+    }
+
+    return res.status(401).json({ 
+      success: false, 
+      message: "Credenciales inválidas" 
+    });
+  } catch (err) {
+    console.error("[AUTH] Login error:", err);
+    return res.status(500).json({ 
+      success: false, 
+      error: "Error en servidor", 
+      details: err.message 
+    });
+  }
+});
+
+/**
+ * ✅ Endpoint para obtener usuarios con reservas y metraje
+ * GET /api/admin/users-with-bookings
+ */
+app.get("/api/admin/users-with-bookings", async (req, res) => {
+  try {
+    // Traer todos los bookings con info del usuario
+    const { data: bookings, error: bookingsError } = await supabase
+      .from("bookings")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (bookingsError) {
+      return res.status(500).json({
+        success: false,
+        error: "Error cargando bookings",
+        details: bookingsError.message
+      });
+    }
+
+    // Agrupar por usuario y calcular metraje total
+    const usersMap = {};
+
+    for (const booking of bookings || []) {
+      const userKey = booking.user_id || booking.email;
+
+      if (!usersMap[userKey]) {
+        usersMap[userKey] = {
+          user_id: booking.user_id,
+          email: booking.email,
+          name: booking.name,
+          company_name: booking.company_type === "company" ? booking.company_name : null,
+          phone: booking.phone,
+          totalVolume: 0,
+          totalItems: 0,
+          totalMonthly: 0,
+          bookingCount: 0,
+          lastBookingDate: null,
+          paymentStatus: "PENDING"
+        };
+      }
+
+      usersMap[userKey].totalVolume += Number(booking.total_volume) || 0;
+      usersMap[userKey].totalItems += Number(booking.total_items) || 0;
+      usersMap[userKey].totalMonthly += Number(booking.amount_monthly) || 0;
+      usersMap[userKey].bookingCount += 1;
+      usersMap[userKey].lastBookingDate = booking.created_at;
+      usersMap[userKey].paymentStatus = booking.payment_status;
+    }
+
+    const usersList = Object.values(usersMap);
+
+    res.json({
+      success: true,
+      count: usersList.length,
+      data: usersList
+    });
+  } catch (err) {
+    console.error("[ADMIN] Error en users-with-bookings:", err);
+    res.status(500).json({
+      success: false,
+      error: "Error en servidor",
+      details: err.message
+    });
+  }
+});
+
+/**
+ * ✅ Endpoint para obtener facturas/pagos con info de usuario
+ * GET /api/admin/invoices-with-users
+ */
+app.get("/api/admin/invoices-with-users", async (req, res) => {
+  try {
+    // Traer todos los pagos/bookings
+    const { data: bookings, error: bookingsError } = await supabase
+      .from("bookings")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (bookingsError) {
+      return res.status(500).json({
+        success: false,
+        error: "Error cargando bookings",
+        details: bookingsError.message
+      });
+    }
+
+    // Mapear a formato de facturas
+    const invoices = (bookings || []).map(booking => ({
+      id: booking.id,
+      name: booking.name,
+      email: booking.email,
+      phone: booking.phone,
+      company_name: booking.company_name,
+      amount: booking.amount_monthly,
+      totalAmount: booking.amount_total,
+      status: booking.payment_status,
+      createdDate: booking.created_at,
+      volume: booking.total_volume,
+      items: booking.total_items
+    }));
+
+    res.json({
+      success: true,
+      count: invoices.length,
+      data: invoices
+    });
+  } catch (err) {
+    console.error("[ADMIN] Error en invoices-with-users:", err);
+    res.status(500).json({
+      success: false,
+      error: "Error en servidor",
+      details: err.message
+    });
+  }
+});
+
+/**
+ * ✅ Endpoint para obtener metraje por usuario en bodegas
+ * GET /api/admin/storage-by-user
+ */
+app.get("/api/admin/storage-by-user", async (req, res) => {
+  try {
+    // Traer todos los bookings
+    const { data: bookings, error: bookingsError } = await supabase
+      .from("bookings")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (bookingsError) {
+      return res.status(500).json({
+        success: false,
+        error: "Error cargando bookings",
+        details: bookingsError.message
+      });
+    }
+
+    // Agrupar por usuario
+    const storageByUser = {};
+
+    for (const booking of bookings || []) {
+      const userKey = booking.user_id || booking.email;
+
+      if (!storageByUser[userKey]) {
+        storageByUser[userKey] = {
+          user_id: booking.user_id,
+          email: booking.email,
+          name: booking.name,
+          company_name: booking.company_name,
+          phone: booking.phone,
+          totalVolume: 0,
+          totalItems: 0,
+          bookings: []
+        };
+      }
+
+      storageByUser[userKey].totalVolume += Number(booking.total_volume) || 0;
+      storageByUser[userKey].totalItems += Number(booking.total_items) || 0;
+      storageByUser[userKey].bookings.push({
+        id: booking.id,
+        volume: booking.total_volume,
+        items: booking.total_items,
+        status: booking.payment_status,
+        createdDate: booking.created_at
+      });
+    }
+
+    const storageList = Object.values(storageByUser);
+
+    res.json({
+      success: true,
+      count: storageList.length,
+      data: storageList
+    });
+  } catch (err) {
+    console.error("[ADMIN] Error en storage-by-user:", err);
+    res.status(500).json({
+      success: false,
+      error: "Error en servidor",
+      details: err.message
+    });
+  }
+});
+
+/**
+ * ✅ Endpoint para obtener clientes con información completa agrupada
+ * GET /api/admin/clients-complete
+ */
+app.get("/api/admin/clients-complete", async (req, res) => {
+  try {
+    // Traer todos los bookings
+    const { data: bookings, error: bookingsError } = await supabase
+      .from("bookings")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (bookingsError) {
+      return res.status(500).json({
+        success: false,
+        error: "Error cargando bookings",
+        details: bookingsError.message
+      });
+    }
+
+    // Agrupar información completa por usuario
+    const clientsMap = {};
+
+    for (const booking of bookings || []) {
+      const userKey = booking.user_id || booking.email;
+
+      if (!clientsMap[userKey]) {
+        clientsMap[userKey] = {
+          user_id: booking.user_id,
+          email: booking.email,
+          name: booking.name,
+          phone: booking.phone,
+          company_name: booking.company_name,
+          booking_type: booking.booking_type,
+          totalVolume: 0,
+          totalItems: 0,
+          totalMonthly: 0,
+          totalPaid: 0,
+          bookingCount: 0,
+          invoices: [],
+          storage: [],
+          paymentStatus: [],
+          lastBookingDate: null
+        };
+      }
+
+      const client = clientsMap[userKey];
+      client.totalVolume += Number(booking.total_volume) || 0;
+      client.totalItems += Number(booking.total_items) || 0;
+      client.totalMonthly += Number(booking.amount_monthly) || 0;
+      client.bookingCount += 1;
+      client.lastBookingDate = booking.created_at;
+
+      if (!client.paymentStatus.includes(booking.payment_status)) {
+        client.paymentStatus.push(booking.payment_status);
+      }
+
+      client.invoices.push({
+        id: booking.id,
+        amount: booking.amount_monthly,
+        status: booking.payment_status,
+        createdDate: booking.created_at
+      });
+
+      client.storage.push({
+        volume: booking.total_volume,
+        items: booking.total_items,
+        status: booking.payment_status
+      });
+    }
+
+    const clientsList = Object.values(clientsMap);
+
+    res.json({
+      success: true,
+      count: clientsList.length,
+      data: clientsList
+    });
+  } catch (err) {
+    console.error("[ADMIN] Error en clients-complete:", err);
+    res.status(500).json({
+      success: false,
+      error: "Error en servidor",
+      details: err.message
+    });
+  }
+});
+
+/**
  * ✅ Endpoint para firma integrity
  * Body:
  * {

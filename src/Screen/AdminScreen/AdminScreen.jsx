@@ -23,10 +23,14 @@ const AdminScreen = () => {
   // ---------- HANDLERS ----------
 
   const handleAdminLogin = (credentials) => {
-    // Aquí deberías validar credentials con tu API.
-    // Por ahora, asumimos que siempre loguea bien:
-    console.log('Admin login:', credentials);
-    setIsAdminLoggedIn(true);
+    // Validación de credenciales desde la API
+    if (credentials && credentials.id) {
+      console.log('Admin login exitoso:', credentials);
+      setIsAdminLoggedIn(true);
+    } else {
+      console.error('Credenciales inválidas');
+      alert('No se pudo completar el login');
+    }
   };
 
   const handleRegisterAccess = (data) => {

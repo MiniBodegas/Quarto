@@ -1,276 +1,319 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Card from '../ui/Card';
-import Button from '../ui/Button';
-import Modal from '../ui/Modal';
-import Input from '../ui/Input';
 import Spinner from '../ui/Spinner';
-import AdminClientDetail from './AdminClientDetail';
-import { toProperCase } from '../../utils/formatters';
+import { getClientsComplete } from '../../api';
 
-// --- Sub-component for Creating a Single Client ---
-const CreateClientModal = ({ isOpen, onClose, onCreateClient }) => {
-    const [isSaving, setIsSaving] = useState(false);
-    const initialFormData = {
-        companyName: '', companyType: 'individual', documentId: '',
-        billingEmail: '', phone: '', address: '', storageUnitNumber: '',
-        userName: '', userEmail: '',
-    };
-    const [formData, setFormData] = useState(initialFormData);
-
-    const handleInputChange = (e) => {
-        const { id, value } = e.target;
-        let formattedValue = value;
-        if (id === 'companyName' || id === 'userName') {
-            formattedValue = toProperCase(value);
-        }
-        setFormData(prev => ({ ...prev, [id]: formattedValue }));
-    }
-
-    const handleFormSubmit = async (e) => {
-        e.preventDefault();
-        setIsSaving(true);
-        await onCreateClient(formData);
-        setIsSaving(false);
-        setFormData(initialFormData);
-        onClose();
-    }
-
-    return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Crear Nuevo Cliente y Usuario">
-            <form onSubmit={handleFormSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-                <h3 className="text-lg font-semibold border-b pb-2 mb-4 text-text-primary">Datos del Cliente</h3>
-                <div>
-                    <label htmlFor="companyType" className="block text-sm font-medium text-text-secondary mb-1">Tipo de Cliente</label>
-                    <select id="companyType" value={formData.companyType} onChange={handleInputChange} className="w-full bg-card border border-border rounded-md px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-primary">
-                        <option value="individual">Persona Natural</option>
-                        <option value="company">Empresa</option>
-                    </select>
-                </div>
-                <Input id="companyName" label="Nombre o Razón Social" value={formData.companyName} onChange={handleInputChange} required />
-                <Input id="documentId" label="Documento (Cédula/NIT)" value={formData.documentId} onChange={handleInputChange} required />
-                <Input id="billingEmail" type="email" label="Correo de Facturación (Legal)" value={formData.billingEmail} onChange={handleInputChange} required />
-                <Input id="phone" type="tel" label="Teléfono" value={formData.phone} onChange={handleInputChange} required />
-                <Input id="address" label="Dirección" value={formData.address} onChange={handleInputChange} required />
-                <Input id="storageUnitNumber" label="Número de Bodega" value={formData.storageUnitNumber} onChange={handleInputChange} required />
-                <h3 className="text-lg font-semibold border-b pb-2 pt-4 mb-4 text-text-primary">Datos del Primer Usuario (Para Acceso al Portal)</h3>
-                <p className="text-sm text-text-secondary -mt-2">Este usuario recibirá acceso para gestionar el portal en nombre del cliente.</p>
-                <Input id="userName" label="Nombre del Usuario" value={formData.userName} onChange={handleInputChange} required />
-                <Input id="userEmail" type="email" label="Correo Electrónico del Usuario" value={formData.userEmail} onChange={handleInputChange} required />
-                <div className="flex justify-end gap-3 pt-6">
-                    <Button type="button" variant="secondary" onClick={onClose} disabled={isSaving}>Cancelar</Button>
-                    <Button type="submit" disabled={isSaving}>
-                        {isSaving ? <Spinner size="sm"/> : "Guardar Cliente"}
-                    </Button>
-                </div>
-            </form>
-        </Modal>
-    );
-};
-
-// --- Sub-component for Importing Multiple Clients ---
-const ImportClientsModal = ({ isOpen, onClose, onCreateMultipleClients }) => {
-    const [isSaving, setIsSaving] = useState(false);
-    const [importText, setImportText] = useState('');
-    const [previewRows, setPreviewRows] = useState([]);
-
-    const handleProcessImport = () => {
-        const lines = importText.trim().split('\n');
-        const processedRows = lines.map(line => {
-            const columns = line.split('\t');
-            if (columns.length !== 9) {
-                return { data: {}, status: 'error', error: `Se esperaban 9 columnas, pero se encontraron ${columns.length}.`, originalLine: line };
-            }
-
-            const [companyNameRaw, companyTypeRaw, documentId, billingEmail, phone, address, storageUnitNumber, userNameRaw, userEmail] = columns.map(c => c.trim());
-            const companyName = toProperCase(companyNameRaw);
-            const userName = toProperCase(userNameRaw);
-            const companyType = companyTypeRaw.toLowerCase() === 'empresa' ? 'company' : 'individual';
-            const data = { companyName, companyType, documentId, billingEmail, phone, address, storageUnitNumber, userName, userEmail };
-            
-            if (!companyName || !documentId || !billingEmail || !userName || !userEmail) {
-                 return { data, status: 'error', error: 'Faltan campos obligatorios (Nombre, Documento, Email Facturación, Nombre Usuario, Email Usuario).', originalLine: line };
-            }
-
-            return { data, status: 'valid', originalLine: line };
-        });
-        setPreviewRows(processedRows);
-    }
-    
-    const handleConfirmImport = async () => {
-        const validClients = previewRows.filter(row => row.status === 'valid').map(row => row.data);
-        if (validClients.length === 0) return;
-
-        setIsSaving(true);
-        await onCreateMultipleClients(validClients);
-        setIsSaving(false);
-        setImportText('');
-        setPreviewRows([]);
-        onClose();
-    }
-
-    const resetAndClose = () => {
-        setImportText('');
-        setPreviewRows([]);
-        onClose();
-    }
-    
-    const validRowCount = useMemo(() => previewRows.filter(r => r.status === 'valid').length, [previewRows]);
-    const errorRowCount = useMemo(() => previewRows.filter(r => r.status === 'error').length, [previewRows]);
-
-    return (
-        <Modal isOpen={isOpen} onClose={resetAndClose} title="Importar Múltiples Clientes">
-            <div className="space-y-4">
-                <div>
-                    <p className="text-sm text-text-secondary">Copie y pegue los datos desde su hoja de cálculo. Asegúrese de que las columnas estén en el orden correcto y separadas por tabulación.</p>
-                    <div className="mt-2 p-2 bg-gray-100 rounded text-xs text-text-secondary overflow-x-auto">
-                        <code>Nombre Cliente	Tipo	Documento	Email Facturación	Teléfono	Dirección	Bodega	Nombre Usuario	Email Usuario</code>
-                    </div>
-                     <p className="text-xs text-text-secondary mt-1">El tipo de cliente debe ser "Empresa" o "Persona Natural".</p>
-                </div>
-                <textarea 
-                    id="import-data"
-                    rows={8}
-                    className="w-full bg-card border border-border rounded-md px-3 py-2 text-text-primary placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="Pegue aquí los datos de los clientes, un cliente por línea..."
-                    value={importText}
-                    onChange={(e) => setImportText(e.target.value)}
-                />
-                <Button onClick={handleProcessImport} disabled={!importText.trim()} className="w-full">Procesar y Previsualizar</Button>
-                
-                {previewRows.length > 0 && (
-                    <div className="border-t pt-4 mt-4">
-                        <h3 className="font-semibold text-text-primary">Previsualización de la Importación</h3>
-                        <div className="flex gap-4 text-sm mt-2">
-                            <p><span className="font-bold text-green-600">{validRowCount}</span> clientes listos para importar.</p>
-                            <p><span className="font-bold text-red-600">{errorRowCount}</span> filas con errores.</p>
-                        </div>
-                        <div className="max-h-48 overflow-y-auto mt-2 space-y-2 pr-2">
-                            {previewRows.map((row, index) => (
-                                <div key={index} className={`p-2 rounded text-xs border ${row.status === 'valid' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                                    <p className="font-mono truncate" title={row.originalLine}>{row.originalLine}</p>
-                                    {row.status === 'error' && <p className="font-semibold text-red-700 mt-1">Error: {row.error}</p>}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-
-                <div className="flex justify-end gap-3 pt-6">
-                    <Button type="button" variant="secondary" onClick={resetAndClose} disabled={isSaving}>Cancelar</Button>
-                    <Button onClick={handleConfirmImport} disabled={isSaving || validRowCount === 0}>
-                        {isSaving ? <Spinner size="sm"/> : `Confirmar Importación (${validRowCount})`}
-                    </Button>
-                </div>
-            </div>
-         </Modal>
-    );
-};
-
-// --- Main AdminClients Component ---
-const AdminClients = ({ 
-    companyProfiles, loginUsers, onCreateClient, onCreateMultipleClients, onUpdateClient
-}) => {
-    const [selectedClient, setSelectedClient] = useState(null);
-    const [isIndividualModalOpen, setIsIndividualModalOpen] = useState(false);
-    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+const AdminClients = () => {
+    const [clients, setClients] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [expandedClient, setExpandedClient] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
-    
-    const filteredClients = useMemo(() => {
-        if (!searchTerm) return companyProfiles;
-        return companyProfiles.filter(client =>
-            client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            client.document_id.includes(searchTerm)
+    const [sortBy, setSortBy] = useState('totalMonthly');
+
+    useEffect(() => {
+        loadClients();
+    }, []);
+
+    const loadClients = async () => {
+        try {
+            setLoading(true);
+            const result = await getClientsComplete();
+            
+            if (result.success && result.data) {
+                setClients(result.data);
+                setError(null);
+            } else {
+                setError(result.error || 'Error al cargar los clientes');
+            }
+        } catch (err) {
+            setError('Error de conexión: ' + err.message);
+            console.error('Error:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const filteredAndSortedClients = useMemo(() => {
+        let filtered = clients.filter(client => {
+            const searchLower = searchTerm.toLowerCase();
+            return (
+                client.name?.toLowerCase().includes(searchLower) ||
+                client.email?.toLowerCase().includes(searchLower) ||
+                client.company_name?.toLowerCase().includes(searchLower)
+            );
+        });
+
+        filtered.sort((a, b) => {
+            if (sortBy === 'totalMonthly') {
+                return b.totalMonthly - a.totalMonthly;
+            } else if (sortBy === 'totalVolume') {
+                return b.totalVolume - a.totalVolume;
+            } else if (sortBy === 'name') {
+                return (a.name || '').localeCompare(b.name || '');
+            }
+            return 0;
+        });
+
+        return filtered;
+    }, [clients, searchTerm, sortBy]);
+
+    const stats = useMemo(() => {
+        return {
+            totalClients: clients.length,
+            totalVolume: clients.reduce((sum, c) => sum + c.totalVolume, 0),
+            totalItems: clients.reduce((sum, c) => sum + c.totalItems, 0),
+            totalMonthly: clients.reduce((sum, c) => sum + c.totalMonthly, 0),
+            paidClients: clients.filter(c => c.paymentStatus.includes('APPROVED')).length
+        };
+    }, [clients]);
+
+    const getPaymentStatusBadge = (statuses) => {
+        if (!statuses || statuses.length === 0) return <span className="px-2 text-xs rounded-full bg-gray-100 text-gray-800">Pendiente</span>;
+        
+        const hasPaid = statuses.includes('APPROVED');
+        const hasPending = statuses.includes('PENDING');
+        
+        if (hasPaid && !hasPending) {
+            return <span className="px-2 text-xs rounded-full bg-green-100 text-green-800">Pagado</span>;
+        } else if (hasPending && !hasPaid) {
+            return <span className="px-2 text-xs rounded-full bg-yellow-100 text-yellow-800">Pendiente</span>;
+        } else {
+            return <span className="px-2 text-xs rounded-full bg-blue-100 text-blue-800">Mixto</span>;
+        }
+    };
+
+    if (loading) {
+        return (
+            <Card className="p-8 flex items-center justify-center">
+                <Spinner />
+            </Card>
         );
-    }, [companyProfiles, searchTerm]);
-
-    const usersForSelectedClient = useMemo(() => {
-        if (!selectedClient) return [];
-        return loginUsers.filter(user => user.company_id === selectedClient.id);
-    }, [selectedClient, loginUsers]);
-
-    if (selectedClient) {
-        return <AdminClientDetail 
-                    client={selectedClient} 
-                    users={usersForSelectedClient}
-                    onUpdateClient={onUpdateClient} 
-                    onBack={() => setSelectedClient(null)} 
-                />
     }
 
     return (
         <div>
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-                <div>
-                    <h1 className="text-3xl font-bold text-text-primary">Clientes</h1>
-                    <p className="text-text-secondary mt-1">Gestiona los perfiles de clientes y sus usuarios de acceso.</p>
-                </div>
-                <div className="flex gap-3 mt-4 sm:mt-0">
-                    <Button variant="secondary" onClick={() => setIsImportModalOpen(true)}>Importar Múltiples Clientes</Button>
-                    <Button onClick={() => setIsIndividualModalOpen(true)}>Agregar Cliente Individual</Button>
-                </div>
+            <div className="mb-6">
+                <h1 className="text-3xl font-bold text-text-primary">Gestión de Clientes</h1>
+                <p className="text-text-secondary mt-1">Información completa de usuarios, metraje y facturas.</p>
             </div>
-            
-            <Card>
-                <div className="mb-4">
-                     <Input 
-                        label="Buscar Cliente"
-                        id="search-client"
-                        placeholder="Buscar por nombre o documento..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
-                </div>
-                {filteredClients.length > 0 ? (
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-border">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Nombre / Razón Social</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Documento</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Bodega</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Contacto Principal</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Tipo</th>
-                                    <th className="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-card divide-y divide-border">
-                                {filteredClients.map(profile => (
-                                    <tr key={profile.id}>
-                                        <td className="px-6 py-4 whitespace-nowrap font-medium text-text-primary">{profile.name}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-text-secondary">{profile.document_id}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-text-secondary">{profile.storage_unit_number}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-text-secondary">{profile.operational_contact_email}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <span className={`px-3 py-1 text-xs font-medium rounded-full ${profile.type === 'company' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>
-                                                {profile.type === 'company' ? 'Empresa' : 'Persona'}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                                            <Button variant="secondary" onClick={() => setSelectedClient(profile)}>
-                                                Ver / Editar
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                ) : (
-                    <p className="text-center text-text-secondary py-8">No se encontraron clientes.</p>
-                )}
-            </Card>
 
-            <CreateClientModal 
-                isOpen={isIndividualModalOpen}
-                onClose={() => setIsIndividualModalOpen(false)}
-                onCreateClient={onCreateClient}
-            />
-            
-            <ImportClientsModal
-                isOpen={isImportModalOpen}
-                onClose={() => setIsImportModalOpen(false)}
-                onCreateMultipleClients={onCreateMultipleClients}
-            />
+            {error && (
+                <Card className="mb-6 p-4 bg-red-50 border border-red-200">
+                    <p className="text-red-700">{error}</p>
+                </Card>
+            )}
+
+            {/* Resumen */}
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
+                <Card>
+                    <div className="flex items-center">
+                        <div className="p-3 rounded-full bg-blue-100 text-primary mr-4">
+                            <span className="material-symbols-outlined">group</span>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-text-secondary">Total Clientes</p>
+                            <p className="text-2xl font-bold text-text-primary">{stats.totalClients}</p>
+                        </div>
+                    </div>
+                </Card>
+
+                <Card>
+                    <div className="flex items-center">
+                        <div className="p-3 rounded-full bg-green-100 text-green-600 mr-4">
+                            <span className="material-symbols-outlined">aspect_ratio</span>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-text-secondary">Metraje Total (m³)</p>
+                            <p className="text-2xl font-bold text-green-600">{stats.totalVolume.toFixed(2)}</p>
+                        </div>
+                    </div>
+                </Card>
+
+                <Card>
+                    <div className="flex items-center">
+                        <div className="p-3 rounded-full bg-orange-100 text-orange-600 mr-4">
+                            <span className="material-symbols-outlined">package_2</span>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-text-secondary">Total Items</p>
+                            <p className="text-2xl font-bold text-orange-600">{stats.totalItems}</p>
+                        </div>
+                    </div>
+                </Card>
+
+                <Card>
+                    <div className="flex items-center">
+                        <div className="p-3 rounded-full bg-purple-100 text-purple-600 mr-4">
+                            <span className="material-symbols-outlined">attach_money</span>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-text-secondary">Ingresos Mensuales</p>
+                            <p className="text-2xl font-bold text-purple-600">${stats.totalMonthly.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</p>
+                        </div>
+                    </div>
+                </Card>
+
+                <Card>
+                    <div className="flex items-center">
+                        <div className="p-3 rounded-full bg-green-100 text-green-600 mr-4">
+                            <span className="material-symbols-outlined">check_circle</span>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-text-secondary">Clientes Pagados</p>
+                            <p className="text-2xl font-bold text-green-600">{stats.paidClients} / {stats.totalClients}</p>
+                        </div>
+                    </div>
+                </Card>
+            </div>
+
+            {/* Tabla */}
+            <Card>
+                <div className="mb-6 space-y-4">
+                    <h2 className="text-xl font-semibold text-text-primary">Listado Completo de Clientes</h2>
+                    
+                    <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                        <div className="flex-1">
+                            <input
+                                type="text"
+                                placeholder="Buscar por nombre, email o empresa..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full px-4 py-2 border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                            />
+                        </div>
+                        <div className="flex items-center gap-2 whitespace-nowrap">
+                            <label className="text-sm font-medium text-text-secondary">Ordenar:</label>
+                            <select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value)}
+                                className="px-3 py-2 border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                            >
+                                <option value="totalMonthly">Ingresos (Mayor)</option>
+                                <option value="totalVolume">Metraje (Mayor)</option>
+                                <option value="name">Nombre (A-Z)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    {filteredAndSortedClients.length > 0 ? (
+                        filteredAndSortedClients.map((client, idx) => (
+                            <div key={idx} className="border border-border rounded-lg overflow-hidden hover:bg-gray-50 transition-colors">
+                                <button
+                                    onClick={() => setExpandedClient(expandedClient === idx ? null : idx)}
+                                    className="w-full text-left p-4 flex items-center justify-between"
+                                >
+                                    <div className="flex-1">
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex-1">
+                                                <h3 className="text-sm font-semibold text-text-primary">{client.name || 'N/A'}</h3>
+                                                {client.company_name && (
+                                                    <p className="text-xs text-text-secondary">{client.company_name}</p>
+                                                )}
+                                                <p className="text-xs text-text-secondary">{client.email}</p>
+                                            </div>
+                                            <div className="flex gap-4 items-center">
+                                                <div className="text-right">
+                                                    <p className="text-xs text-text-secondary">Metraje</p>
+                                                    <p className="text-sm font-semibold text-green-600">{client.totalVolume.toFixed(2)} m³</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-xs text-text-secondary">Cuota Mensual</p>
+                                                    <p className="text-sm font-semibold text-primary">${client.totalMonthly.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-xs text-text-secondary">Estado</p>
+                                                    {getPaymentStatusBadge(client.paymentStatus)}
+                                                </div>
+                                                <span className={`material-symbols-outlined transition-transform ${expandedClient === idx ? 'rotate-180' : ''}`}>
+                                                    expand_more
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </button>
+
+                                {/* Detalles expandibles */}
+                                {expandedClient === idx && (
+                                    <div className="border-t border-border p-4 bg-gray-50">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                            {/* Información básica */}
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-text-primary mb-3">Información General</h4>
+                                                <dl className="space-y-2 text-sm">
+                                                    <div>
+                                                        <dt className="text-text-secondary">Teléfono:</dt>
+                                                        <dd className="text-text-primary font-medium">{client.phone || 'N/A'}</dd>
+                                                    </div>
+                                                    <div>
+                                                        <dt className="text-text-secondary">Tipo:</dt>
+                                                        <dd className="text-text-primary font-medium">{client.booking_type === 'company' ? 'Empresa' : 'Persona Natural'}</dd>
+                                                    </div>
+                                                    <div>
+                                                        <dt className="text-text-secondary">Reservas Activas:</dt>
+                                                        <dd className="text-text-primary font-medium">{client.bookingCount}</dd>
+                                                    </div>
+                                                </dl>
+                                            </div>
+
+                                            {/* Resumen de almacenamiento */}
+                                            <div>
+                                                <h4 className="text-sm font-semibold text-text-primary mb-3">Almacenamiento</h4>
+                                                <dl className="space-y-2 text-sm">
+                                                    <div>
+                                                        <dt className="text-text-secondary">Metraje Total:</dt>
+                                                        <dd className="text-text-primary font-medium">{client.totalVolume.toFixed(2)} m³</dd>
+                                                    </div>
+                                                    <div>
+                                                        <dt className="text-text-secondary">Items Guardados:</dt>
+                                                        <dd className="text-text-primary font-medium">{client.totalItems}</dd>
+                                                    </div>
+                                                    <div>
+                                                        <dt className="text-text-secondary">Cuota Mensual:</dt>
+                                                        <dd className="text-text-primary font-medium">${client.totalMonthly.toLocaleString('es-CO', { maximumFractionDigits: 0 })}</dd>
+                                                    </div>
+                                                </dl>
+                                            </div>
+
+                                            {/* Reservas */}
+                                            {client.bookings && client.bookings.length > 0 && (
+                                                <div className="md:col-span-2">
+                                                    <h4 className="text-sm font-semibold text-text-primary mb-3">Reservas</h4>
+                                                    <div className="space-y-2">
+                                                        {client.bookings.map((booking, bidx) => (
+                                                            <div key={bidx} className="bg-white p-2 rounded border border-border text-xs">
+                                                                <div className="flex justify-between">
+                                                                    <span className="font-medium">{booking.volume.toFixed(2)} m³ - {booking.items} items</span>
+                                                                    <span className={`px-2 rounded ${
+                                                                        booking.status === 'APPROVED' 
+                                                                            ? 'bg-green-100 text-green-800' 
+                                                                            : 'bg-yellow-100 text-yellow-800'
+                                                                    }`}>
+                                                                        {booking.status === 'APPROVED' ? 'Pagada' : 'Pendiente'}
+                                                                    </span>
+                                                                </div>
+                                                                <p className="text-text-secondary mt-1">
+                                                                    {new Date(booking.createdDate).toLocaleDateString('es-CO')}
+                                                                </p>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        ))
+                    ) : (
+                        <div className="text-center py-8 text-text-secondary">
+                            {searchTerm ? 'No hay clientes que coincidan con la búsqueda' : 'No hay clientes registrados'}
+                        </div>
+                    )}
+                </div>
+            </Card>
         </div>
     );
 };

@@ -1,45 +1,90 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Card from '../ui/Card';
-import { formatCurrency } from '../../utils/formatters';
+import Spinner from '../ui/Spinner';
+import { getInvoicesWithUsers } from '../../api';
 
-const AdminInvoices = ({ invoices, companyProfiles }) => {
+const AdminInvoices = () => {
+    const [invoices, setInvoices] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [statusFilter, setStatusFilter] = useState('all');
-    const [clientFilter, setClientFilter] = useState('all');
+    const [sortBy, setSortBy] = useState('date');
 
-    const getCompanyName = (companyId) => {
-        return companyProfiles.find(c => c.id === companyId)?.name || 'Cliente Desconocido';
+    useEffect(() => {
+        loadInvoices();
+    }, []);
+
+    const loadInvoices = async () => {
+        try {
+            setLoading(true);
+            const result = await getInvoicesWithUsers();
+            
+            if (result.success && result.data) {
+                setInvoices(result.data);
+                setError(null);
+            } else {
+                setError(result.error || 'Error al cargar las facturas');
+            }
+        } catch (err) {
+            setError('Error de conexión: ' + err.message);
+            console.error('Error:', err);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const getStatusBadge = (status) => {
         switch (status) {
-            case 'paid':
+            case 'APPROVED':
                 return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">Pagada</span>;
-            case 'unpaid':
-                return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">No Pagada</span>;
-            case 'overdue':
-                return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Vencida</span>;
+            case 'PENDING':
+                return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">Pendiente</span>;
+            case 'DECLINED':
+                return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">Rechazada</span>;
             default:
-                return null;
+                return <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">{status}</span>;
         }
     };
-    
-    const sortedInvoices = useMemo(() => 
-        [...invoices].sort((a,b) => new Date(b.issue_date).getTime() - new Date(a.issue_date).getTime()),
-        [invoices]
-    );
 
-    const filteredInvoices = useMemo(() => {
-        return sortedInvoices.filter(invoice => {
-            const statusMatch = statusFilter === 'all' ||
-                (statusFilter === 'paid' && invoice.status === 'paid') ||
-                (statusFilter === 'unpaid' && invoice.status === 'unpaid') ||
-                (statusFilter === 'overdue' && invoice.status === 'overdue');
-            
-            const clientMatch = clientFilter === 'all' || invoice.company_id === clientFilter;
+    const filteredAndSortedInvoices = useMemo(() => {
+        let filtered = invoices.filter(inv => 
+            statusFilter === 'all' || inv.status === statusFilter
+        );
 
-            return statusMatch && clientMatch;
+        filtered.sort((a, b) => {
+            if (sortBy === 'date') {
+                return new Date(b.createdDate) - new Date(a.createdDate);
+            } else if (sortBy === 'amount') {
+                return b.amount - a.amount;
+            } else if (sortBy === 'name') {
+                return (a.name || '').localeCompare(b.name || '');
+            }
+            return 0;
         });
-    }, [sortedInvoices, statusFilter, clientFilter]);
+
+        return filtered;
+    }, [invoices, statusFilter, sortBy]);
+
+    const stats = useMemo(() => {
+        const totalInvoices = invoices.length;
+        const totalAmount = invoices.reduce((sum, inv) => sum + (inv.amount || 0), 0);
+        const paidAmount = invoices
+            .filter(inv => inv.status === 'APPROVED')
+            .reduce((sum, inv) => sum + (inv.amount || 0), 0);
+        const pendingAmount = invoices
+            .filter(inv => inv.status === 'PENDING')
+            .reduce((sum, inv) => sum + (inv.amount || 0), 0);
+
+        return { totalInvoices, totalAmount, paidAmount, pendingAmount };
+    }, [invoices]);
+
+    if (loading) {
+        return (
+            <Card className="p-8 flex items-center justify-center">
+                <Spinner />
+            </Card>
+        );
+    }
 
     return (
         <div>
@@ -48,64 +93,174 @@ const AdminInvoices = ({ invoices, companyProfiles }) => {
                 <p className="text-text-secondary mt-1">Consulta y filtra el historial completo de facturación.</p>
             </div>
 
-            <Card>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 pb-4 border-b border-border">
-                    <div>
-                        <label htmlFor="clientFilter" className="block text-sm font-medium text-text-secondary mb-1">Filtrar por Cliente</label>
-                        <select 
-                            id="clientFilter" 
-                            className="w-full bg-card border border-border rounded-md px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
-                            value={clientFilter}
-                            onChange={(e) => setClientFilter(e.target.value)}
-                        >
-                            <option value="all">Todos los Clientes</option>
-                            {companyProfiles.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
+            {error && (
+                <Card className="mb-6 p-4 bg-red-50 border border-red-200">
+                    <p className="text-red-700">{error}</p>
+                </Card>
+            )}
+
+            {/* Resumen */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+                <Card>
+                    <div className="flex items-center">
+                        <div className="p-3 rounded-full bg-blue-100 text-primary mr-4">
+                            <span className="material-symbols-outlined">receipt_long</span>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-text-secondary">Total Facturas</p>
+                            <p className="text-2xl font-bold text-text-primary">{stats.totalInvoices}</p>
+                        </div>
                     </div>
-                     <div>
-                        <label htmlFor="statusFilter" className="block text-sm font-medium text-text-secondary mb-1">Filtrar por Estado</label>
-                        <select 
-                            id="statusFilter"
-                            className="w-full bg-card border border-border rounded-md px-3 py-2 text-text-primary focus:outline-none focus:ring-2 focus:ring-primary"
-                            value={statusFilter}
-                            onChange={(e) => setStatusFilter(e.target.value)}
-                        >
-                            <option value="all">Todos los Estados</option>
-                            <option value="unpaid">No Pagada</option>
-                            <option value="overdue">Vencida</option>
-                            <option value="paid">Pagada</option>
-                        </select>
+                </Card>
+
+                <Card>
+                    <div className="flex items-center">
+                        <div className="p-3 rounded-full bg-green-100 text-green-600 mr-4">
+                            <span className="material-symbols-outlined">check_circle</span>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-text-secondary">Monto Pagado</p>
+                            <p className="text-2xl font-bold text-green-600">
+                                ${stats.paidAmount.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                            </p>
+                        </div>
+                    </div>
+                </Card>
+
+                <Card>
+                    <div className="flex items-center">
+                        <div className="p-3 rounded-full bg-yellow-100 text-yellow-600 mr-4">
+                            <span className="material-symbols-outlined">schedule</span>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-text-secondary">Pendiente</p>
+                            <p className="text-2xl font-bold text-yellow-600">
+                                ${stats.pendingAmount.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                            </p>
+                        </div>
+                    </div>
+                </Card>
+
+                <Card>
+                    <div className="flex items-center">
+                        <div className="p-3 rounded-full bg-purple-100 text-purple-600 mr-4">
+                            <span className="material-symbols-outlined">attach_money</span>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-text-secondary">Total Facturado</p>
+                            <p className="text-2xl font-bold text-purple-600">
+                                ${stats.totalAmount.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                            </p>
+                        </div>
+                    </div>
+                </Card>
+            </div>
+
+            {/* Tabla */}
+            <Card>
+                <div className="mb-6 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+                    <h2 className="text-xl font-semibold text-text-primary">Facturas Detalladas</h2>
+                    <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm font-medium text-text-secondary whitespace-nowrap">Estado:</label>
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="px-3 py-2 border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                            >
+                                <option value="all">Todas</option>
+                                <option value="APPROVED">Pagadas</option>
+                                <option value="PENDING">Pendientes</option>
+                                <option value="DECLINED">Rechazadas</option>
+                            </select>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-sm font-medium text-text-secondary whitespace-nowrap">Ordenar:</label>
+                            <select
+                                value={sortBy}
+                                onChange={(e) => setSortBy(e.target.value)}
+                                className="px-3 py-2 border border-border rounded text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                            >
+                                <option value="date">Fecha (Reciente)</option>
+                                <option value="amount">Monto (Mayor)</option>
+                                <option value="name">Nombre (A-Z)</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
                 <div className="overflow-x-auto">
                     <table className="min-w-full divide-y divide-border">
-                         <thead className="bg-gray-50">
+                        <thead className="bg-gray-50">
                             <tr>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Factura #</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Cliente</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Emisión</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Vencimiento</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Importe</th>
-                                <th className="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Estado</th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                                    Usuario
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                                    Email
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                                    Teléfono
+                                </th>
+                                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">
+                                    Cuota Mensual
+                                </th>
+                                <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">
+                                    Total
+                                </th>
+                                <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                                    Fecha
+                                </th>
+                                <th className="px-4 py-3 text-center text-xs font-medium text-text-secondary uppercase tracking-wider">
+                                    Estado
+                                </th>
                             </tr>
                         </thead>
                         <tbody className="bg-card divide-y divide-border">
-                            {filteredInvoices.map(invoice => (
-                                <tr key={invoice.id}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-text-primary">{invoice.invoice_number}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">{getCompanyName(invoice.company_id)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">{invoice.issue_date}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">{invoice.due_date}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-text-primary">{formatCurrency(invoice.amount)}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm">{getStatusBadge(invoice.status)}</td>
+                            {filteredAndSortedInvoices.length > 0 ? (
+                                filteredAndSortedInvoices.map((inv, idx) => (
+                                    <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-4 py-3 whitespace-nowrap">
+                                            <div>
+                                                <p className="text-sm font-medium text-text-primary">{inv.name || 'N/A'}</p>
+                                                {inv.company_name && (
+                                                    <p className="text-xs text-text-secondary">{inv.company_name}</p>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-text-secondary">
+                                            {inv.email}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-text-secondary">
+                                            {inv.phone || '-'}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-right">
+                                            <span className="text-sm font-semibold text-primary">
+                                                ${inv.amount.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-right">
+                                            <span className="text-sm text-text-secondary">
+                                                ${inv.totalAmount.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-text-secondary">
+                                            {new Date(inv.createdDate).toLocaleDateString('es-CO')}
+                                        </td>
+                                        <td className="px-4 py-3 whitespace-nowrap text-center">
+                                            {getStatusBadge(inv.status)}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan="7" className="px-4 py-8 text-center text-text-secondary">
+                                        No hay facturas con los filtros seleccionados
+                                    </td>
                                 </tr>
-                            ))}
+                            )}
                         </tbody>
                     </table>
-                     {filteredInvoices.length === 0 && (
-                        <p className="text-center text-text-secondary py-8">No se encontraron facturas con los filtros seleccionados.</p>
-                    )}
                 </div>
             </Card>
         </div>

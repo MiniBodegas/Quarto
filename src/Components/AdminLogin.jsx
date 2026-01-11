@@ -7,11 +7,16 @@ const AdminLogin = ({ onLogin, onGoToClientLogin }) => {
     
     const handleQuickLogin = async () => {
         // Auto-login con credenciales hardcodeadas para desarrollo
-        const result = await adminLogin('admin@quarto.com', 'password123');
-        if (result.success) {
-            onLogin(); // Navega al panel de admin
-        } else {
-            // Muestra error
+        try {
+            const result = await adminLogin('admin@quarto.com', 'password123');
+            if (result.success) {
+                onLogin(result.data); // Navega al panel de admin con los datos
+            } else {
+                alert('Error en login: ' + (result.message || 'Credenciales inválidas'));
+            }
+        } catch (error) {
+            console.error('Error en login:', error);
+            alert('Error de conexión: ' + error.message);
         }
     };
 
