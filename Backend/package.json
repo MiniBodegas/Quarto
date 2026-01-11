@@ -4,14 +4,15 @@
   "type": "module",
   "scripts": {
     "dev:mail": "tsx mail/mail.js",
-  "start": "node server.js",
-  "generate:invoices": "node scripts/generate_monthly_invoices.js",
-  "test:alegra": "node scripts/test_alegra_payload.js"
+    "start": "node server.js",
+    "generate:invoices": "node scripts/generate_monthly_invoices.js",
+    "test:alegra": "node scripts/test_alegra_payload.js"
   },
   "dependencies": {
     "@react-email/components": "^1.0.1",
     "@react-email/render": "^0.0.11",
     "@supabase/supabase-js": "^2.46.2",
+    "bcrypt": "^6.0.0",
     "body-parser": "^2.2.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",

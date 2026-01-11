@@ -3,6 +3,7 @@ import express from "express";
 import crypto from "crypto";
 import cors from "cors";
 import dotenv from "dotenv";
+import bcrypt from "bcrypt";
 import { createClient } from "@supabase/supabase-js";
 
 dotenv.config();
@@ -53,7 +54,7 @@ app.get("/health", (req, res) => res.json({ ok: true }));
 app.get("/api/wompi/ping", (req, res) => res.json({ ok: true, hasWebhook: true }));
 
 /**
- * ✅ Endpoint para login de Admin
+ * ✅ Endpoint para login de Admin con contraseña hasheada
  * Body:
  * {
  *   email: string,
@@ -71,28 +72,150 @@ app.post("/auth/admin-login", async (req, res) => {
       });
     }
 
-    // Validación de credenciales de desarrollo
-    const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@quarto.com';
-    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'password123';
+    // Buscar el admin en la BD
+    const { data: admin, error } = await supabase
+      .from('admins')
+      .select('*')
+      .eq('email', email)
+      .single();
 
-    if (email === ADMIN_EMAIL && password === ADMIN_PASSWORD) {
-      return res.json({
-        success: true,
-        data: {
-          id: 'admin-001',
-          email: email,
-          role: 'admin',
-          name: 'Administrador'
-        }
+    if (error || !admin) {
+      return res.status(401).json({ 
+        success: false, 
+        message: "Credenciales inválidas" 
       });
     }
 
-    return res.status(401).json({ 
-      success: false, 
-      message: "Credenciales inválidas" 
+    // Validar contraseña con bcrypt
+    const passwordValid = await bcrypt.compare(password, admin.password);
+    
+    if (!passwordValid) {
+      return res.status(401).json({ 
+        success: false, 
+        message: "Credenciales inválidas" 
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        id: admin.id,
+        email: admin.email,
+        role: 'admin',
+        name: admin.name || 'Administrador'
+      }
     });
+
   } catch (err) {
     console.error("[AUTH] Login error:", err);
+    return res.status(500).json({ 
+      success: false, 
+      error: "Error en servidor", 
+      details: err.message 
+    });
+  }
+});
+
+/**
+ * ✅ Endpoint para crear nuevo admin (solo admins pueden crear)
+ * Body:
+ * {
+ *   email: string,
+ *   password: string,
+ *   name: string
+ * }
+ */
+app.post("/auth/admin-register", async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
+
+    if (!email || !password || !name) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Email, contraseña y nombre son requeridos" 
+      });
+    }
+
+    // Validar que la contraseña tenga al menos 6 caracteres
+    if (password.length < 6) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Contraseña debe tener al menos 6 caracteres" 
+      });
+    }
+
+    // Validar email
+    if (!email.includes('@')) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Email inválido" 
+      });
+    }
+
+    // Hashear la contraseña
+    const password_hash = await bcrypt.hash(password, 10);
+
+    // Crear el nuevo admin
+    const { data, error } = await supabase
+      .from('admins')
+      .insert({
+        email,
+        password: password_hash,
+        name,
+      })
+      .select();
+
+    if (error) {
+      if (error.message.includes('unique constraint')) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Este email ya está registrado como admin" 
+        });
+      }
+      throw error;
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: "Admin creado exitosamente",
+      data: {
+        id: data[0].id,
+        email: data[0].email,
+        name: data[0].name,
+        created_at: data[0].created_at
+      }
+    });
+
+  } catch (err) {
+    console.error("[AUTH] Register admin error:", err);
+    return res.status(500).json({ 
+      success: false, 
+      error: "Error en servidor", 
+      details: err.message 
+    });
+  }
+});
+
+/**
+ * ✅ Endpoint para obtener lista de todos los admins
+ * GET /auth/admins
+ */
+app.get("/auth/admins", async (req, res) => {
+  try {
+    const { data: admins, error } = await supabase
+      .from('admins')
+      .select('id, email, name, created_at')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return res.json({
+      success: true,
+      data: admins || []
+    });
+
+  } catch (err) {
+    console.error("[AUTH] Get admins error:", err);
     return res.status(500).json({ 
       success: false, 
       error: "Error en servidor", 

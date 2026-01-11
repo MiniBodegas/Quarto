@@ -21,6 +21,7 @@ export { default as AdminClientDetail } from './admin/AdminClientDetail';
 export { default as AdminClients } from './admin/AdminClients';
 export { default as AdminDashboard } from './admin/AdminDashboard';
 export { default as AdminInvoices } from './admin/AdminInvoices';
+export { default as AdminManagers } from './admin/AdminManagers';
 export { default as AdminProfile } from './admin/AdminProfile';
 export { default as AdminStatements } from './admin/AdminStatements';
 export { default as AdminStorage } from './admin/AdminStorage';

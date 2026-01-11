@@ -8,6 +8,23 @@ export async function adminLogin(email, password) {
   return res.json();
 }
 
+export async function createAdmin(email, password, name) {
+  const res = await fetch('http://localhost:3000/auth/admin-register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password, name }),
+  });
+  return res.json();
+}
+
+export async function getAdmins() {
+  const res = await fetch('http://localhost:3000/auth/admins', {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return res.json();
+}
+
 export async function getUsersWithBookings() {
   const res = await fetch('http://localhost:3000/api/admin/users-with-bookings', {
     method: 'GET',

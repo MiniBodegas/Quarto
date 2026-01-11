@@ -8,9 +8,10 @@ import AdminInvoices from './admin/AdminInvoices';
 import AdminStatements from './admin/AdminStatements';
 import AdminAccessControl from './admin/AdminAccessControl';
 import AdminProfile from './admin/AdminProfile';
+import AdminManagers from './admin/AdminManagers';
 import Spinner from './ui/Spinner';
 
-const AdminHeader = ({ onToggleSidebar }) => (
+const AdminHeader = ({ adminUser, onToggleSidebar }) => (
     <header className="bg-card/80 backdrop-blur-sm sticky top-0 z-20 flex items-center justify-between p-4 h-20 border-b border-border">
         <div className="flex items-center gap-4">
             <button onClick={onToggleSidebar} className="p-2 rounded-full hover:bg-gray-100 md:hidden" aria-label="Abrir menú de navegación">
@@ -22,9 +23,11 @@ const AdminHeader = ({ onToggleSidebar }) => (
             </h1>
         </div>
         <div className="flex items-center">
-            <span className="mr-3 font-medium text-text-primary hidden sm:inline">Admin</span>
+            <span className="mr-3 font-medium text-text-primary hidden sm:inline">
+                {adminUser?.name || 'Admin'}
+            </span>
             <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center font-bold text-white">
-                A
+                {adminUser?.name?.charAt(0)?.toUpperCase() || 'A'}
             </div>
         </div>
     </header>
@@ -37,7 +40,7 @@ const Sidebar = ({ currentView, setView, onSignOut, isOpen }) => {
     { id: 'clients', name: 'Clientes', icon: <span className="material-symbols-outlined">group</span> },
     { id: 'storage', name: 'Bodegas', icon: <span className="material-symbols-outlined">warehouse</span> },
     { id: 'invoices', name: 'Facturas', icon: <span className="material-symbols-outlined">receipt_long</span> },
-    { id: 'statements', name: 'Estado de Cuenta', icon: <span className="material-symbols-outlined">account_balance_wallet</span> },
+    { id: 'managers', name: 'Administradores', icon: <span className="material-symbols-outlined">admin_panel_settings</span> },
   ];
 
   const profileNavItem = { id: 'profile', name: 'Mi Perfil', icon: <span className="material-symbols-outlined">account_circle</span> };
@@ -68,7 +71,7 @@ const Sidebar = ({ currentView, setView, onSignOut, isOpen }) => {
 
 
 const AdminPanel = (props) => {
-    const { onAdminLogout, companyProfiles, loginUsers, invoices, authorizedPersons, storageUnits, 
+    const { adminUser, onAdminLogout, companyProfiles, loginUsers, invoices, authorizedPersons, storageUnits, 
             onCreateClient, onCreateMultipleClients, onUpdateClient, accessLogs, onRegisterAccess } = props;
     
     const [currentView, setCurrentView] = useState('dashboard');
@@ -110,8 +113,10 @@ const AdminPanel = (props) => {
                 return <AdminInvoices />;
             case 'statements':
                 return <AdminStatements invoices={invoices} companyProfiles={companyProfiles} />;
+            case 'managers':
+                return <AdminManagers />;
             case 'profile':
-                return <AdminProfile />;
+                return <AdminProfile adminUser={adminUser} />;
             default:
                 return <div>Seleccione una vista</div>;
         }
@@ -129,7 +134,7 @@ const AdminPanel = (props) => {
                 className="h-screen flex flex-col bg-background text-text-primary"
                 style={{ visibility: isReady ? 'visible' : 'hidden' }}
             >
-                <AdminHeader onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
+                <AdminHeader adminUser={adminUser} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} />
                 <div className="relative flex-1 md:flex">
                     {isSidebarOpen && <div onClick={() => setIsSidebarOpen(false)} className="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"></div>}
                     
