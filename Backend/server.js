@@ -419,6 +419,68 @@ app.get("/api/admin/storage-by-user", async (req, res) => {
 });
 
 /**
+ * ✅ Endpoint para obtener items de inventario de un usuario específico
+ * GET /api/admin/inventory-by-user/:userId
+ */
+app.get("/api/admin/inventory-by-user/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // 1. Obtener todos los bookings del usuario
+    const { data: bookings, error: bookingsError } = await supabase
+      .from("bookings")
+      .select("id")
+      .eq("user_id", userId);
+
+    if (bookingsError) {
+      return res.status(500).json({
+        success: false,
+        error: "Error cargando bookings del usuario",
+        details: bookingsError.message
+      });
+    }
+
+    if (!bookings || bookings.length === 0) {
+      return res.json({
+        success: true,
+        count: 0,
+        data: []
+      });
+    }
+
+    const bookingIds = bookings.map(b => b.id);
+
+    // 2. Obtener todos los items de inventario para estos bookings
+    const { data: inventory, error: inventoryError } = await supabase
+      .from("inventory")
+      .select("*")
+      .in("booking_id", bookingIds)
+      .order("created_at", { ascending: false });
+
+    if (inventoryError) {
+      return res.status(500).json({
+        success: false,
+        error: "Error cargando inventario",
+        details: inventoryError.message
+      });
+    }
+
+    res.json({
+      success: true,
+      count: inventory ? inventory.length : 0,
+      data: inventory || []
+    });
+  } catch (err) {
+    console.error("[ADMIN] Error en inventory-by-user:", err);
+    res.status(500).json({
+      success: false,
+      error: "Error en servidor",
+      details: err.message
+    });
+  }
+});
+
+/**
  * ✅ Endpoint para obtener clientes con información completa agrupada
  * GET /api/admin/clients-complete
  */

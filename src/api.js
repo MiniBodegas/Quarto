@@ -58,3 +58,11 @@ export async function getClientsComplete() {
   });
   return res.json();
 }
+
+export async function getInventoryByUser(userId) {
+  const res = await fetch(`${API_URL}/api/admin/inventory-by-user/${userId}`, {
+    method: 'GET',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  return res.json();
+}

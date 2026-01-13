@@ -1,13 +1,17 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Card from '../ui/Card';
 import Spinner from '../ui/Spinner';
-import { getStorageByUser } from '../../api';
+import { getStorageByUser, getInventoryByUser } from '../../api';
 
 const AdminStorage = () => {
     const [storage, setStorage] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [sortBy, setSortBy] = useState('totalVolume');
+    const [selectedUser, setSelectedUser] = useState(null);
+    const [inventoryLoading, setInventoryLoading] = useState(false);
+    const [userInventory, setUserInventory] = useState([]);
+    const [inventoryError, setInventoryError] = useState(null);
 
     useEffect(() => {
         loadStorage();
@@ -29,6 +33,44 @@ const AdminStorage = () => {
             console.error('Error:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const loadUserInventory = async (user) => {
+        try {
+            setInventoryLoading(true);
+            setInventoryError(null);
+            
+            if (!user.user_id) {
+                setInventoryError('ID de usuario no disponible');
+                setUserInventory([]);
+                return;
+            }
+            
+            const result = await getInventoryByUser(user.user_id);
+            
+            if (result.success) {
+                setUserInventory(result.data || []);
+            } else {
+                setInventoryError(result.error || 'Error al cargar inventario');
+            }
+        } catch (err) {
+            setInventoryError('Error de conexión: ' + err.message);
+            console.error('Error:', err);
+        } finally {
+            setInventoryLoading(false);
+        }
+    };
+
+    const handleSelectUser = (user) => {
+        if (selectedUser?.user_id === user.user_id) {
+            // Deseleccionar si ya está seleccionado
+            setSelectedUser(null);
+            setUserInventory([]);
+        } else {
+            // Seleccionar y cargar inventario
+            setSelectedUser(user);
+            loadUserInventory(user);
         }
     };
 
@@ -177,42 +219,134 @@ const AdminStorage = () => {
                         <tbody className="bg-card divide-y divide-border">
                             {sortedStorage.length > 0 ? (
                                 sortedStorage.map((user, idx) => (
-                                    <tr key={idx} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-4 py-3 whitespace-nowrap">
-                                            <div>
-                                                <p className="text-sm font-medium text-text-primary">{user.name || 'N/A'}</p>
-                                                {user.company_name && (
-                                                    <p className="text-xs text-text-secondary">{user.company_name}</p>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-sm text-text-secondary">
-                                            {user.email}
-                                        </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-right">
-                                            <div className="flex flex-col items-end">
-                                                <span className="text-sm font-semibold text-green-600">
-                                                    {user.totalVolume.toFixed(2)} m³
-                                                </span>
-                                                <div className="w-32 h-2 bg-gray-200 rounded-full mt-1 overflow-hidden">
-                                                    <div 
-                                                        className="h-full bg-green-500 rounded-full transition-all duration-300"
-                                                        style={{ width: `${Math.min((user.totalVolume / stats.totalVolume) * 100, 100)}%` }}
-                                                    />
+                                    <React.Fragment key={idx}>
+                                        <tr 
+                                            onClick={() => handleSelectUser(user)}
+                                            className={`hover:bg-gray-50 transition-colors cursor-pointer ${selectedUser?.user_id === user.user_id ? 'bg-blue-50' : ''}`}
+                                        >
+                                            <td className="px-4 py-3 whitespace-nowrap">
+                                                <div>
+                                                    <p className="text-sm font-medium text-text-primary">{user.name || 'N/A'}</p>
+                                                    {user.company_name && (
+                                                        <p className="text-xs text-text-secondary">{user.company_name}</p>
+                                                    )}
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-right">
-                                            <span className="text-sm text-text-secondary">
-                                                {user.totalItems}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 whitespace-nowrap text-right">
-                                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold">
-                                                {user.bookings.length}
-                                            </span>
-                                        </td>
-                                    </tr>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-sm text-text-secondary">
+                                                {user.email}
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-right">
+                                                <div className="flex flex-col items-end">
+                                                    <span className="text-sm font-semibold text-green-600">
+                                                        {user.totalVolume.toFixed(2)} m³
+                                                    </span>
+                                                    <div className="w-32 h-2 bg-gray-200 rounded-full mt-1 overflow-hidden">
+                                                        <div 
+                                                            className="h-full bg-green-500 rounded-full transition-all duration-300"
+                                                            style={{ width: `${Math.min((user.totalVolume / stats.totalVolume) * 100, 100)}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-right">
+                                                <span className="text-sm text-text-secondary">
+                                                    {user.totalItems}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-3 whitespace-nowrap text-right">
+                                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-100 text-blue-600 text-xs font-bold">
+                                                    {user.bookings.length}
+                                                </span>
+                                            </td>
+                                        </tr>
+
+                                        {/* Fila expandida con detalles de inventario */}
+                                        {selectedUser?.user_id === user.user_id && (
+                                            <tr className="bg-blue-50 border-t-2 border-blue-200">
+                                                <td colSpan="5" className="px-6 py-4">
+                                                    <div>
+                                                        <div className="flex justify-between items-center mb-3">
+                                                            <h3 className="text-lg font-semibold text-text-primary">
+                                                                Items de Inventario
+                                                            </h3>
+                                                            {inventoryLoading && <Spinner />}
+                                                        </div>
+
+                                                        {inventoryError && (
+                                                            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded text-red-700 text-sm">
+                                                                {inventoryError}
+                                                            </div>
+                                                        )}
+
+                                                        {userInventory.length > 0 ? (
+                                                            <div className="overflow-x-auto">
+                                                                <table className="min-w-full text-sm">
+                                                                    <thead>
+                                                                        <tr className="bg-blue-100 border-b border-blue-300">
+                                                                            <th className="px-3 py-2 text-left font-semibold text-text-primary">
+                                                                                Código
+                                                                            </th>
+                                                                            <th className="px-3 py-2 text-left font-semibold text-text-primary">
+                                                                                Nombre
+                                                                            </th>
+                                                                            <th className="px-3 py-2 text-left font-semibold text-text-primary">
+                                                                                Categoría
+                                                                            </th>
+                                                                            <th className="px-3 py-2 text-right font-semibold text-text-primary">
+                                                                                Cantidad
+                                                                            </th>
+                                                                            <th className="px-3 py-2 text-right font-semibold text-text-primary">
+                                                                                Volumen (m³)
+                                                                            </th>
+                                                                            <th className="px-3 py-2 text-left font-semibold text-text-primary">
+                                                                                Estado
+                                                                            </th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody className="divide-y divide-blue-200">
+                                                                        {userInventory.map((item, itemIdx) => (
+                                                                            <tr key={itemIdx} className="hover:bg-blue-100 transition-colors">
+                                                                                <td className="px-3 py-2">
+                                                                                    <span className="inline-block px-2 py-1 bg-purple-100 text-purple-700 rounded font-mono text-xs font-bold">
+                                                                                        {item.short_code || 'N/A'}
+                                                                                    </span>
+                                                                                </td>
+                                                                                <td className="px-3 py-2 text-text-primary">
+                                                                                    {item.item_name || 'Ítem sin nombre'}
+                                                                                </td>
+                                                                                <td className="px-3 py-2 text-text-secondary">
+                                                                                    {item.category || 'Sin categoría'}
+                                                                                </td>
+                                                                                <td className="px-3 py-2 text-right text-text-primary font-semibold">
+                                                                                    {item.quantity || 0}
+                                                                                </td>
+                                                                                <td className="px-3 py-2 text-right text-text-primary font-semibold">
+                                                                                    {(Number(item.volume) || 0).toFixed(3)}
+                                                                                </td>
+                                                                                <td className="px-3 py-2">
+                                                                                    <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                                                                                        item.status === 'active' 
+                                                                                            ? 'bg-green-100 text-green-700'
+                                                                                            : 'bg-gray-100 text-gray-700'
+                                                                                    }`}>
+                                                                                        {item.status || 'activo'}
+                                                                                    </span>
+                                                                                </td>
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        ) : !inventoryLoading ? (
+                                                            <div className="p-4 text-center text-text-secondary bg-gray-50 rounded">
+                                                                No hay items de inventario para este usuario
+                                                            </div>
+                                                        ) : null}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </React.Fragment>
                                 ))
                             ) : (
                                 <tr>
