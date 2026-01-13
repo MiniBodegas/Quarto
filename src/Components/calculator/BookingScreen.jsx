@@ -327,6 +327,7 @@ const BookingScreen = ({
           internal_token: internalToken,
           amount_total: totalToPayCOP,
           amount_monthly: baseMonthlyCOP,
+          transport_price: transportCOP,
         })
         .eq("id", bookingId);
       
@@ -338,6 +339,26 @@ const BookingScreen = ({
       
       console.log("[Booking] ✅ Token interno generado:", internalToken);
       console.log("[Booking] ✅ Precios guardados correctamente");
+
+      // 2.4) Crear registro inicial en la tabla payments
+      const { error: paymentInsertError } = await supabase
+        .from("payments")
+        .insert([{
+          booking_id: bookingId,
+          wompi_reference: wompiReference,
+          status: "PENDING",
+          amount_in_cents: totalToPayCOP * 100,
+          currency: "COP",
+          payment_method: "wompi",
+          created_at: new Date().toISOString(),
+        }]);
+      
+      if (paymentInsertError) {
+        console.warn("[Booking] ⚠️ No se pudo crear registro inicial de pago:", paymentInsertError);
+        // No detenemos el proceso, el webhook puede crear el registro después
+      } else {
+        console.log("[Booking] ✅ Registro de pago inicial creado en tabla payments");
+      }
 
       // 3) Si hay transport asociado, linkear booking_id
       if (transport?.id) {

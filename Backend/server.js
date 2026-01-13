@@ -879,21 +879,87 @@ app.post("/api/wompi/webhook", async (req, res) => {
 
     // 3️⃣ Insert/Upsert en payments (idempotente)
     console.log("[WOMPI] 💾 Registrando pago en tabla 'payments'...");
-    const { error: paymentError } = await supabase
+    console.log("[WOMPI] 📊 Datos del pago:", {
+      booking_id: bookingId,
+      wompi_transaction_id: transactionId,
+      wompi_reference: reference,
+      status: status,
+      amount_in_cents: amount_in_cents,
+      currency: currency,
+      payment_method: payment_method_type
+    });
+    
+    // Primero verificar si ya existe un pago con esta wompi_reference O este booking_id
+    const { data: existingPayment, error: checkError } = await supabase
       .from("payments")
-      .upsert(
-        {
+      .select("id, wompi_transaction_id, status")
+      .eq("booking_id", bookingId)
+      .maybeSingle();
+    
+    if (checkError) {
+      console.error("[WOMPI] ❌ Error buscando pago existente:", checkError);
+    } else if (existingPayment) {
+      console.log("[WOMPI] 🔍 Pago existente encontrado:", {
+        id: existingPayment.id,
+        transaction_id_anterior: existingPayment.wompi_transaction_id,
+        status_anterior: existingPayment.status
+      });
+    } else {
+      console.log("[WOMPI] ℹ️ No se encontró pago existente, se creará uno nuevo");
+    }
+    
+    let paymentError = null;
+    
+    if (existingPayment) {
+      // Actualizar el registro existente
+      console.log("[WOMPI] 🔄 Actualizando pago existente con ID:", existingPayment.id);
+      const { error: updateErr } = await supabase
+        .from("payments")
+        .update({
+          wompi_transaction_id: transactionId,
+          status: status,
+          amount_in_cents: amount_in_cents,
+          currency: currency,
+          payment_method: payment_method_type,
+          wompi_event: req.body,
+        })
+        .eq("id", existingPayment.id);
+      
+      if (updateErr) {
+        console.error("[WOMPI] ❌ Error actualizando pago:", updateErr);
+        console.error("[WOMPI] ❌ Detalles del error:", JSON.stringify(updateErr, null, 2));
+      } else {
+        console.log("[WOMPI] ✅ Pago actualizado exitosamente");
+        console.log("[WOMPI] ✅ Nuevo status:", status);
+        console.log("[WOMPI] ✅ Transaction ID guardado:", transactionId);
+      }
+      
+      paymentError = updateErr;
+    } else {
+      // Crear nuevo registro
+      console.log("[WOMPI] ➕ Creando nuevo registro de pago");
+      const { error: insertErr } = await supabase
+        .from("payments")
+        .insert([{
           booking_id: bookingId,
           wompi_transaction_id: transactionId,
           wompi_reference: reference,
-          status,
-          amount_in_cents,
-          currency,
+          status: status,
+          amount_in_cents: amount_in_cents,
+          currency: currency,
           payment_method: payment_method_type,
-          wompi_event: req.body, // guarda el evento completo (si tu columna es JSONB)
-        },
-        { onConflict: "wompi_transaction_id" }
-      );
+          wompi_event: req.body,
+        }]);
+      
+      if (insertErr) {
+        console.error("[WOMPI] ❌ Error insertando pago:", insertErr);
+        console.error("[WOMPI] ❌ Detalles del error:", JSON.stringify(insertErr, null, 2));
+      } else {
+        console.log("[WOMPI] ✅ Pago insertado exitosamente");
+      }
+      
+      paymentError = insertErr;
+    }
 
     if (paymentError) {
       console.error("[WOMPI WEBHOOK] ❌ Error guardando payment:", paymentError);
