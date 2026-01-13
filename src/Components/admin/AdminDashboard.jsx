@@ -67,10 +67,6 @@ const AdminDashboard = () => {
             .filter(inv => inv.status === 'PENDING')
             .reduce((sum, inv) => sum + (inv.amount || 0), 0);
 
-        const paidClients = clients.filter(c => 
-            c.paymentStatus && c.paymentStatus.includes('APPROVED')
-        ).length;
-
         return {
             totalClients,
             totalVolume,
@@ -78,7 +74,6 @@ const AdminDashboard = () => {
             totalMonthly,
             paidAmount,
             pendingAmount,
-            paidClients,
             totalInvoices: invoices.length
         };
     }, [clients, invoices]);
@@ -180,7 +175,7 @@ const AdminDashboard = () => {
             </div>
 
             {/* Estadísticas de pago */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
                 <Card>
                     <div className="flex items-center">
                         <div className="p-3 rounded-full bg-green-100 text-green-600 mr-4">
@@ -207,23 +202,6 @@ const AdminDashboard = () => {
                                 ${stats.pendingAmount.toLocaleString('es-CO', { maximumFractionDigits: 0 })}
                             </p>
                             <p className="text-xs text-text-secondary mt-1">Requiere atención</p>
-                        </div>
-                    </div>
-                </Card>
-
-                <Card>
-                    <div className="flex items-center">
-                        <div className="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
-                            <span className="material-symbols-outlined">verified_user</span>
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-text-secondary">Clientes al Día</p>
-                            <p className="text-2xl font-bold text-blue-600">
-                                {stats.paidClients} / {stats.totalClients}
-                            </p>
-                            <p className="text-xs text-text-secondary mt-1">
-                                {stats.totalClients > 0 ? ((stats.paidClients / stats.totalClients) * 100).toFixed(0) : 0}% de cumplimiento
-                            </p>
                         </div>
                     </div>
                 </Card>
