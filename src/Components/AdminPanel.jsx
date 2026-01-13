@@ -72,7 +72,7 @@ const Sidebar = ({ currentView, setView, onSignOut, isOpen }) => {
 
 const AdminPanel = (props) => {
     const { adminUser, onAdminLogout, companyProfiles, loginUsers, invoices, authorizedPersons, storageUnits, 
-            onCreateClient, onCreateMultipleClients, onUpdateClient, accessLogs, onRegisterAccess } = props;
+            onCreateClient, onCreateMultipleClients, onUpdateClient, accessLogs, onRegisterAccess, onAddAuthorizedPerson } = props;
     
     const [currentView, setCurrentView] = useState('dashboard');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -101,9 +101,9 @@ const AdminPanel = (props) => {
             case 'access_control':
                 return <AdminAccessControl 
                             accessLogs={accessLogs} 
-                            companyProfiles={companyProfiles}
                             authorizedPersons={authorizedPersons}
                             onRegisterAccess={onRegisterAccess}
+                            onAddAuthorizedPerson={onAddAuthorizedPerson}
                         />;
             case 'clients':
                 return <AdminClients />;
