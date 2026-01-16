@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
+import { calculateStoragePrice } from '../utils/pricing';
 
 const MigrationForm = () => {
   const [userData, setUserData] = useState({
@@ -8,6 +9,12 @@ const MigrationForm = () => {
     phone: '',
     document_type: 'CC',
     document_number: '',
+  });
+
+  const [bookingData, setBookingData] = useState({
+    amount_monthly: '',
+    amount_total: '',
+    transport_price: '0',
   });
 
   const [items, setItems] = useState([{
@@ -26,9 +33,35 @@ const MigrationForm = () => {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
+  // Calcular precio automáticamente cuando cambian los items
+  useEffect(() => {
+    const totalVolume = items.reduce((sum, item) => sum + parseFloat(item.volume || 0), 0);
+    const calculatedPrice = calculateStoragePrice(totalVolume);
+    
+    console.log('🔄 Recalculando precio:', {
+      totalVolume: totalVolume.toFixed(2),
+      calculatedPrice,
+      itemsCount: items.length
+    });
+    
+    setBookingData(prev => ({
+      ...prev,
+      amount_monthly: calculatedPrice.toString(),
+      amount_total: calculatedPrice.toString(), // Por defecto igual al mensual
+    }));
+  }, [items]);
+
   const handleUserChange = (e) => {
     const { name, value } = e.target;
     setUserData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleBookingChange = (e) => {
+    const { name, value } = e.target;
+    setBookingData(prev => ({
       ...prev,
       [name]: value
     }));
@@ -139,30 +172,48 @@ const MigrationForm = () => {
         const totalVolume = validItems.reduce((sum, item) => sum + parseFloat(item.volume || 0), 0);
         const totalItems = validItems.reduce((sum, item) => sum + parseInt(item.quantity || 0), 0);
         
+        // Preparar datos del booking
+        const bookingPayload = {
+          user_id: userId,
+          booking_type: 'person',
+          name: userData.name || 'Usuario Migrado',
+          email: userData.email,
+          phone: userData.phone,
+          document_type: userData.document_type || 'CC',
+          document_number: userData.document_number,
+          date: new Date().toISOString().split('T')[0],
+          time_slot: 'AM',
+          total_volume: totalVolume.toFixed(2),
+          total_items: totalItems,
+          logistics_method: 'En bodega',
+          transport_price: parseFloat(bookingData.transport_price || '0'),
+          amount_monthly: parseFloat(bookingData.amount_monthly || '0'),
+          amount_total: parseFloat(bookingData.amount_total || '0'),
+          payment_status: 'PENDING',
+        };
+        
+        console.log('📋 Payload del booking:', bookingPayload);
+        console.log('💰 Precios a guardar:', {
+          amount_monthly: bookingPayload.amount_monthly,
+          amount_total: bookingPayload.amount_total,
+          transport_price: bookingPayload.transport_price
+        });
+        
         const { data: newBooking, error: bookingError } = await supabase
           .from('bookings')
-          .insert({
-            user_id: userId,
-            booking_type: 'person',
-            name: userData.name || 'Usuario Migrado',
-            email: userData.email,
-            phone: userData.phone,
-            document_type: userData.document_type || 'CC',
-            document_number: userData.document_number,
-            date: new Date().toISOString().split('T')[0],
-            time_slot: 'AM',
-            total_volume: totalVolume.toFixed(2),
-            total_items: totalItems,
-            logistics_method: 'En bodega',
-            transport_price: '0',
-            payment_status: 'PENDING',
-          })
+          .insert(bookingPayload)
           .select()
           .single();
 
         if (bookingError) throw bookingError;
         bookingId = newBooking.id;
         console.log('✅ Booking creado:', bookingId);
+        console.log('✅ Datos guardados del booking:', {
+          amount_monthly: newBooking.amount_monthly,
+          amount_total: newBooking.amount_total,
+          transport_price: newBooking.transport_price,
+          total_volume: newBooking.total_volume
+        });
 
         // 3. Insertar todos los items de inventario asociados al booking
         const inventoryDataArray = validItems.map(item => ({
@@ -198,6 +249,11 @@ const MigrationForm = () => {
         phone: '',
         document_type: 'CC',
         document_number: '',
+      });
+      setBookingData({
+        amount_monthly: '',
+        amount_total: '',
+        transport_price: '0',
       });
       setItems([{
         id: Date.now(),
@@ -329,19 +385,92 @@ const MigrationForm = () => {
             </div>
           </div>
 
+          {/* Sección Precios del Booking */}
+          <div className="border-b border-slate-200 pb-6">
+            <h2 className="text-xl font-bold text-[#012E58] mb-4">
+              💰 Precios y Facturación
+            </h2>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-blue-800">
+                ℹ️ Los precios se calculan automáticamente según el volumen total de items. Puedes editarlos manualmente si es necesario.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Precio Mensual (COP) *
+                </label>
+                <input
+                  type="number"
+                  name="amount_monthly"
+                  value={bookingData.amount_monthly}
+                  onChange={handleBookingChange}
+                  required
+                  min="0"
+                  step="0.01"
+                  className="w-full px-4 py-2 border border-green-300 bg-green-50 rounded-lg focus:ring-2 focus:ring-[#074BED] focus:border-transparent text-black font-semibold"
+                  placeholder="150000"
+                />
+                <p className="text-xs text-slate-500 mt-1">✅ Calculado automáticamente por volumen</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Precio Total Inicial (COP)
+                </label>
+                <input
+                  type="number"
+                  name="amount_total"
+                  value={bookingData.amount_total}
+                  onChange={handleBookingChange}
+                  min="0"
+                  step="0.01"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#074BED] focus:border-transparent bg-white text-black"
+                  placeholder="150000"
+                />
+                <p className="text-xs text-slate-500 mt-1">Igual al mensual por defecto</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Precio Transporte (COP)
+                </label>
+                <input
+                  type="number"
+                  name="transport_price"
+                  value={bookingData.transport_price}
+                  onChange={handleBookingChange}
+                  min="0"
+                  step="0.01"
+                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#074BED] focus:border-transparent bg-white text-black"
+                  placeholder="0"
+                />
+                <p className="text-xs text-slate-500 mt-1">Costo de transporte si aplica</p>
+              </div>
+            </div>
+          </div>
+
           {/* Sección Inventario */}
           <div className="pb-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-[#012E58]">
                 📦 Items de Inventario ({items.length})
               </h2>
-              <button
-                type="button"
-                onClick={addItem}
-                className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-all"
-              >
-                ➕ Agregar Item
-              </button>
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <p className="text-xs text-slate-500">Volumen Total</p>
+                  <p className="text-lg font-bold text-[#074BED]">
+                    {items.reduce((sum, item) => sum + parseFloat(item.volume || 0), 0).toFixed(2)} m³
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={addItem}
+                  className="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-semibold transition-all"
+                >
+                  ➕ Agregar Item
+                </button>
+              </div>
             </div>
 
             {items.map((item, index) => (
@@ -503,13 +632,18 @@ const MigrationForm = () => {
             <button
               type="button"
               onClick={() => {
-                if (confirm('¿Estás seguro de limpiar el formulario?')) {
+                  if (confirm('¿Estás seguro de limpiar el formulario?')) {
                   setUserData({
                     email: '',
                     name: '',
                     phone: '',
                     document_type: 'CC',
                     document_number: '',
+                  });
+                  setBookingData({
+                    amount_monthly: '',
+                    amount_total: '',
+                    transport_price: '0',
                   });
                   setItems([{
                     id: Date.now(),
@@ -537,9 +671,11 @@ const MigrationForm = () => {
           <p className="text-sm text-yellow-800">
             ⚠️ <strong>Nota:</strong> Este es un formulario temporal para migración de datos.
             Se creará automáticamente un <code>booking</code> tipo "person" con:
-            • payment_status: "PENDING" • time_slot: "AM" • logistics_method: "En bodega" 
-            • total_volume y total_items calculados automáticamente
-            Los campos <code>item_id</code> y <code>short_code</code> se auto-generan si están vacíos.
+            <br />• payment_status: "PENDING" • time_slot: "AM" • logistics_method: "En bodega" 
+            <br />• total_volume y total_items calculados automáticamente
+            <br />• <strong>amount_monthly:</strong> Precio mensual recurrente que aparecerá en las facturas
+            <br />• <strong>amount_total:</strong> Precio del primer pago (opcional, si es diferente al mensual)
+            <br />Los campos <code>item_id</code> y <code>short_code</code> se auto-generan si están vacíos.
           </p>
         </div>
       </div>
