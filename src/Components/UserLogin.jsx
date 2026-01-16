@@ -36,39 +36,62 @@ const UserLogin = () => {
       }
 
       if (!userData) {
-        // Usuario no existe, mostrar opción de registro
+        // Usuario no existe ni en users, mostrar opción de registro
         setStep('signup');
         setLoading(false);
         return;
       }
 
-      // 2. Verificar si tiene contraseña en Auth (intento de login con password falsa)
+      // 2. Usuario existe en tabla users
+      // Verificar si el ID del usuario es un UUID válido de Supabase Auth
+      // Los usuarios migrados tienen IDs generados por la BD, no por Auth
+      const isAuthUUID = userData.id && userData.id.length === 36 && userData.id.includes('-');
+      
+      if (!isAuthUUID) {
+        // ID no es de Auth = usuario migrado sin contraseña
+        setStep('create-password');
+        setMessage('✨ Primera vez aquí. Crea tu contraseña para acceder.');
+        setLoading(false);
+        return;
+      }
+
+      // 3. Intentar login con contraseña incorrecta para verificar si existe en Auth
       const { error: testError } = await supabase.auth.signInWithPassword({
         email: email,
-        password: '___test_password_check___',
+        password: '___impossible_password_test_123___',
       });
 
       if (testError) {
-        if (testError.message.includes('Invalid login credentials')) {
-          // Usuario existe pero no tiene contraseña configurada
+        const errorMsg = testError.message.toLowerCase();
+        console.log('[UserLogin] Error de prueba auth:', testError.message);
+        
+        if (errorMsg.includes('invalid login credentials') || errorMsg.includes('invalid password')) {
+          // "Invalid login credentials" = usuario EXISTE en Auth, solo la contraseña es incorrecta
+          console.log('[UserLogin] ✅ Usuario tiene Auth, ir a login');
+          setStep('login');
+        } else if (errorMsg.includes('email not confirmed')) {
+          // Email no confirmado, pero usuario existe
+          console.log('[UserLogin] ✅ Usuario existe pero email no confirmado, ir a login');
+          setStep('login');
+        } else if (errorMsg.includes('user not found') || errorMsg.includes('not registered')) {
+          // Usuario NO existe en Auth (migrado)
+          console.log('[UserLogin] ⚠️ Usuario migrado sin Auth, crear contraseña');
           setStep('create-password');
           setMessage('✨ Primera vez aquí. Crea tu contraseña para acceder.');
-        } else if (testError.message.includes('Email not confirmed')) {
-          // Usuario registrado pero email no confirmado
-          setStep('create-password');
-          setMessage('⚠️ Configura tu contraseña para activar tu cuenta.');
         } else {
-          // Usuario tiene contraseña, ir a login
+          // Cualquier otro error, asumir que tiene Auth y puede hacer login
+          console.log('[UserLogin] Error inesperado, asumiendo usuario con auth:', errorMsg);
           setStep('login');
         }
       } else {
-        // Cerrar sesión de prueba
+        // No debería llegar aquí (login exitoso con contraseña falsa?!)
+        console.log('[UserLogin] ⚠️ Login exitoso con password de prueba?!');
         await supabase.auth.signOut();
         setStep('login');
       }
     } catch (err) {
       console.error('[UserLogin] Error verificando email:', err);
-      setError('Error al verificar el email');
+      setError('Error al verificar el email: ' + err.message);
     } finally {
       setLoading(false);
     }
