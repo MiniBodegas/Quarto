@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Card from '../ui/Card';
 import Spinner from '../ui/Spinner';
+import Button from '../ui/Button';
+import Modal from '../ui/Modal';
 import { getInvoicesWithUsers } from '../../api';
+import { supabase } from '../../supabase';
 
 const AdminInvoices = () => {
     const [invoices, setInvoices] = useState([]);
@@ -9,6 +12,9 @@ const AdminInvoices = () => {
     const [error, setError] = useState(null);
     const [statusFilter, setStatusFilter] = useState('all');
     const [sortBy, setSortBy] = useState('date');
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [generationResult, setGenerationResult] = useState(null);
+    const [showResultModal, setShowResultModal] = useState(false);
 
     useEffect(() => {
         loadInvoices();
@@ -63,6 +69,135 @@ const AdminInvoices = () => {
             console.error('Error:', err);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const generateMonthlyInvoices = async () => {
+        if (!confirm('¿Estás seguro de generar las facturas del mes actual? Esta acción creará facturas para todos los clientes activos.')) {
+            return;
+        }
+
+        setIsGenerating(true);
+        setError(null);
+        const result = {
+            success: 0,
+            failed: 0,
+            skipped: 0,
+            errors: [],
+            created: []
+        };
+
+        try {
+            // Obtener fecha actual
+            const now = new Date();
+            const currentMonth = now.getMonth() + 1;
+            const currentYear = now.getFullYear();
+            const invoiceDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`;
+
+            console.log(`[AdminInvoices] Generando facturas para: ${currentYear}-${currentMonth}`);
+
+            // 1. Obtener todos los bookings activos con amount_monthly > 0
+            const { data: activeBookings, error: bookingsError } = await supabase
+                .from('bookings')
+                .select('id, user_id, email, name, amount_monthly, payment_status')
+                .gt('amount_monthly', 0)
+                .eq('payment_status', 'PENDING');
+
+            if (bookingsError) {
+                throw new Error('Error al obtener bookings: ' + bookingsError.message);
+            }
+
+            console.log(`[AdminInvoices] Bookings activos encontrados: ${activeBookings?.length || 0}`);
+
+            if (!activeBookings || activeBookings.length === 0) {
+                setGenerationResult({
+                    success: 0,
+                    failed: 0,
+                    skipped: 0,
+                    message: 'No hay bookings activos con monto mensual configurado'
+                });
+                setShowResultModal(true);
+                return;
+            }
+
+            // 2. Para cada booking, verificar si ya tiene factura del mes
+            for (const booking of activeBookings) {
+                try {
+                    // Verificar si ya existe factura para este mes
+                    const { data: existingInvoice, error: checkError } = await supabase
+                        .from('payments')
+                        .select('id')
+                        .eq('booking_id', booking.id)
+                        .gte('created_at', `${currentYear}-${String(currentMonth).padStart(2, '0')}-01`)
+                        .lt('created_at', `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-01`)
+                        .maybeSingle();
+
+                    if (checkError && checkError.code !== 'PGRST116') {
+                        throw checkError;
+                    }
+
+                    if (existingInvoice) {
+                        result.skipped++;
+                        console.log(`[AdminInvoices] ⏭️ Factura ya existe para booking ${booking.id}`);
+                        continue;
+                    }
+
+                    // 3. Crear payment record (factura)
+                    const amountInCents = Math.round(booking.amount_monthly * 100);
+                    const reference = `QUARTO_${booking.id}_${currentYear}${String(currentMonth).padStart(2, '0')}`;
+
+                    const { data: newPayment, error: paymentError } = await supabase
+                        .from('payments')
+                        .insert({
+                            booking_id: booking.id,
+                            user_id: booking.user_id,
+                            amount_in_cents: amountInCents,
+                            currency: 'COP',
+                            status: 'PENDING',
+                            wompi_reference: reference,
+                            created_at: invoiceDate,
+                        })
+                        .select()
+                        .single();
+
+                    if (paymentError) {
+                        throw paymentError;
+                    }
+
+                    result.success++;
+                    result.created.push({
+                        name: booking.name,
+                        email: booking.email,
+                        amount: booking.amount_monthly,
+                        reference: reference
+                    });
+                    console.log(`[AdminInvoices] ✅ Factura creada: ${reference}`);
+
+                } catch (err) {
+                    result.failed++;
+                    result.errors.push({
+                        booking_id: booking.id,
+                        name: booking.name,
+                        error: err.message
+                    });
+                    console.error(`[AdminInvoices] ❌ Error en booking ${booking.id}:`, err);
+                }
+            }
+
+            // 4. Mostrar resultado
+            setGenerationResult(result);
+            setShowResultModal(true);
+
+            // 5. Recargar facturas
+            if (result.success > 0) {
+                await loadInvoices();
+            }
+
+        } catch (err) {
+            console.error('[AdminInvoices] Error general generando facturas:', err);
+            setError('Error generando facturas: ' + err.message);
+        } finally {
+            setIsGenerating(false);
         }
     };
 
@@ -126,14 +261,26 @@ const AdminInvoices = () => {
                     <h1 className="text-3xl font-bold text-text-primary">Registro de Facturas</h1>
                     <p className="text-text-secondary mt-1">Consulta y filtra el historial completo de facturación.</p>
                 </div>
-                <button
-                    onClick={loadInvoices}
-                    disabled={loading}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition disabled:opacity-50"
-                >
-                    <span className="material-symbols-outlined text-lg">refresh</span>
-                    {loading ? 'Cargando...' : 'Refrescar'}
-                </button>
+                <div className="flex gap-3">
+                    <button
+                        onClick={generateMonthlyInvoices}
+                        disabled={isGenerating}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50"
+                    >
+                        <span className="material-symbols-outlined text-lg">
+                            {isGenerating ? 'hourglass_empty' : 'calendar_month'}
+                        </span>
+                        {isGenerating ? 'Generando...' : 'Generar Facturas del Mes'}
+                    </button>
+                    <button
+                        onClick={loadInvoices}
+                        disabled={loading}
+                        className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition disabled:opacity-50"
+                    >
+                        <span className="material-symbols-outlined text-lg">refresh</span>
+                        {loading ? 'Cargando...' : 'Refrescar'}
+                    </button>
+                </div>
             </div>
 
             {error && (
@@ -306,6 +453,95 @@ const AdminInvoices = () => {
                     </table>
                 </div>
             </Card>
+
+            {/* Modal de Resultado de Generación */}
+            {showResultModal && generationResult && (
+                <Modal
+                    isOpen={showResultModal}
+                    onClose={() => {
+                        setShowResultModal(false);
+                        setGenerationResult(null);
+                    }}
+                    title="Resultado de Generación de Facturas"
+                >
+                    <div className="space-y-4">
+                        {generationResult.message ? (
+                            <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                <p className="text-yellow-800">{generationResult.message}</p>
+                            </div>
+                        ) : (
+                            <>
+                                {/* Resumen */}
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="p-4 bg-green-50 border border-green-200 rounded-lg text-center">
+                                        <p className="text-3xl font-bold text-green-600">{generationResult.success}</p>
+                                        <p className="text-sm text-green-700 mt-1">Creadas</p>
+                                    </div>
+                                    <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-center">
+                                        <p className="text-3xl font-bold text-yellow-600">{generationResult.skipped}</p>
+                                        <p className="text-sm text-yellow-700 mt-1">Omitidas</p>
+                                    </div>
+                                    <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-center">
+                                        <p className="text-3xl font-bold text-red-600">{generationResult.failed}</p>
+                                        <p className="text-sm text-red-700 mt-1">Fallidas</p>
+                                    </div>
+                                </div>
+
+                                {/* Facturas creadas */}
+                                {generationResult.created && generationResult.created.length > 0 && (
+                                    <div>
+                                        <h3 className="font-semibold text-text-primary mb-2">
+                                            Facturas Creadas ({generationResult.created.length})
+                                        </h3>
+                                        <div className="max-h-40 overflow-y-auto space-y-2">
+                                            {generationResult.created.map((item, idx) => (
+                                                <div key={idx} className="p-2 bg-green-50 border border-green-200 rounded text-sm">
+                                                    <p className="font-medium text-green-900">{item.name}</p>
+                                                    <p className="text-green-700">
+                                                        {item.email} - ${item.amount.toLocaleString('es-CO')}
+                                                    </p>
+                                                    <p className="text-xs text-green-600">{item.reference}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Errores */}
+                                {generationResult.errors && generationResult.errors.length > 0 && (
+                                    <div>
+                                        <h3 className="font-semibold text-red-600 mb-2">
+                                            Errores ({generationResult.errors.length})
+                                        </h3>
+                                        <div className="max-h-40 overflow-y-auto space-y-2">
+                                            {generationResult.errors.map((err, idx) => (
+                                                <div key={idx} className="p-2 bg-red-50 border border-red-200 rounded text-sm">
+                                                    <p className="font-medium text-red-900">
+                                                        Booking ID: {err.booking_id} - {err.name}
+                                                    </p>
+                                                    <p className="text-red-700">{err.error}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </>
+                        )}
+
+                        {/* Botón cerrar */}
+                        <div className="flex justify-end pt-4 border-t">
+                            <Button
+                                onClick={() => {
+                                    setShowResultModal(false);
+                                    setGenerationResult(null);
+                                }}
+                            >
+                                Cerrar
+                            </Button>
+                        </div>
+                    </div>
+                </Modal>
+            )}
         </div>
     );
 };
