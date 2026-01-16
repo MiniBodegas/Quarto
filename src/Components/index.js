@@ -33,6 +33,8 @@ export { default as Modal } from './ui/Modal';
 export { default as Spinner } from './ui/Spinner';
 export { ToastContainer } from './ui/Toast';
 
+export { default as MigrationForm } from './MigrationForm';
+
 export {default as AddItemForm} from './calculator/AddItemForm'
 export {default as AIPhotoUpload} from './calculator/AIPhotoUpload'
 export {default as BookingScreen} from './calculator/BookingScreen'

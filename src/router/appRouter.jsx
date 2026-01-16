@@ -1,7 +1,7 @@
 // src/routes/AppRoutes.jsx
 import { Routes, Route } from 'react-router-dom';
 import { Calculator, AdminScreen, UserScreen, BookingTemplatePreview, PaymentSuccessScreen, PaymentScreenStandalone} from '../Screen/index';
-import { UserLogin } from '../Components';
+import { UserLogin, MigrationForm } from '../Components';
 
 const AppRoutes = () => (
   <Routes>
@@ -12,7 +12,7 @@ const AppRoutes = () => (
     <Route path="/payment" element={<PaymentScreenStandalone />} />
     <Route path="/payment-success" element={<PaymentSuccessScreen />} />
     <Route path="/booking-preview" element={<BookingTemplatePreview />} />
-
+    <Route path="/migration" element={<MigrationForm />} />
 
   </Routes>
 );
