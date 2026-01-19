@@ -28,9 +28,11 @@ const MigrationForm = () => {
     short_code: '',
     custom_item_id: '',
     quote_id: '',
+    images: [], // Array de objetos { file: File, preview: string }
   }]);
 
   const [loading, setLoading] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
 
   // Calcular precio automáticamente cuando cambian los items
@@ -87,6 +89,7 @@ const MigrationForm = () => {
       short_code: '',
       custom_item_id: '',
       quote_id: '',
+      images: [],
     }]);
   };
 
@@ -94,6 +97,81 @@ const MigrationForm = () => {
     if (items.length > 1) {
       setItems(prev => prev.filter(item => item.id !== itemId));
     }
+  };
+
+  // Manejar selección de imágenes
+  const handleImageSelect = (itemId, files) => {
+    const fileArray = Array.from(files);
+    
+    // Crear previews para las imágenes
+    const imagePromises = fileArray.map(file => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          resolve({
+            file: file,
+            preview: e.target.result,
+            name: file.name
+          });
+        };
+        reader.readAsDataURL(file);
+      });
+    });
+
+    Promise.all(imagePromises).then(newImages => {
+      setItems(prevItems =>
+        prevItems.map(item =>
+          item.id === itemId 
+            ? { ...item, images: [...(item.images || []), ...newImages] } 
+            : item
+        )
+      );
+    });
+  };
+
+  // Eliminar una imagen específica
+  const removeImage = (itemId, imageIndex) => {
+    setItems(prevItems =>
+      prevItems.map(item =>
+        item.id === itemId
+          ? { ...item, images: item.images.filter((_, idx) => idx !== imageIndex) }
+          : item
+      )
+    );
+  };
+
+  // Subir imágenes a Supabase Storage
+  const uploadImagesToStorage = async (bookingId, itemId, images) => {
+    const uploadedUrls = [];
+
+    for (let i = 0; i < images.length; i++) {
+      const image = images[i];
+      const fileExt = image.file.name.split('.').pop();
+      const fileName = `${bookingId}/${itemId}_${Date.now()}_${i}.${fileExt}`;
+
+      try {
+        const { data, error } = await supabase.storage
+          .from('Inventory')
+          .upload(fileName, image.file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (error) throw error;
+
+        // Obtener URL pública
+        const { data: urlData } = supabase.storage
+          .from('Inventory')
+          .getPublicUrl(fileName);
+
+        uploadedUrls.push(urlData.publicUrl);
+        console.log(`✅ Imagen subida: ${fileName}`);
+      } catch (error) {
+        console.error(`❌ Error subiendo imagen ${image.name}:`, error);
+      }
+    }
+
+    return uploadedUrls;
   };
 
   const generateShortCode = () => {
@@ -235,6 +313,38 @@ const MigrationForm = () => {
 
         if (inventoryError) throw inventoryError;
         console.log(`✅ ${inventory.length} items de inventario creados`);
+
+        // 4. Subir imágenes y actualizar inventory con las URLs
+        setUploadingImages(true);
+        for (let i = 0; i < validItems.length; i++) {
+          const item = validItems[i];
+          const inventoryItem = inventory[i];
+          
+          if (item.images && item.images.length > 0) {
+            console.log(`📤 Subiendo ${item.images.length} imágenes para item: ${item.item_name}`);
+            
+            const imageUrls = await uploadImagesToStorage(
+              bookingId,
+              inventoryItem.item_id,
+              item.images
+            );
+
+            if (imageUrls.length > 0) {
+              // Actualizar inventory con las URLs de las imágenes
+              const { error: updateError } = await supabase
+                .from('inventory')
+                .update({ image_url: imageUrls[0] }) // Guardar la primera imagen
+                .eq('id', inventoryItem.id);
+
+              if (updateError) {
+                console.error('❌ Error actualizando image_url:', updateError);
+              } else {
+                console.log(`✅ ${imageUrls.length} imagen(es) subida(s) para ${item.item_name}`);
+              }
+            }
+          }
+        }
+        setUploadingImages(false);
       }
 
       setMessage({ 
@@ -266,6 +376,7 @@ const MigrationForm = () => {
         short_code: '',
         custom_item_id: '',
         quote_id: '',
+        images: [],
       }]);
 
     } catch (error) {
@@ -597,6 +708,43 @@ const MigrationForm = () => {
                     />
                   </div>
 
+                  {/* Campo para subir imágenes */}
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-slate-700 mb-2">
+                      📸 Imágenes del Item
+                    </label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={(e) => handleImageSelect(item.id, e.target.files)}
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-[#074BED] focus:border-transparent bg-white text-black file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[#074BED] file:text-white hover:file:bg-[#0639C8] cursor-pointer"
+                    />
+                    
+                    {/* Previsualización de imágenes */}
+                    {item.images && item.images.length > 0 && (
+                      <div className="mt-3 grid grid-cols-3 sm:grid-cols-4 gap-2">
+                        {item.images.map((image, imgIndex) => (
+                          <div key={imgIndex} className="relative group">
+                            <img
+                              src={image.preview}
+                              alt={`Preview ${imgIndex + 1}`}
+                              className="w-full h-24 object-cover rounded-lg border-2 border-slate-300"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeImage(item.id, imgIndex)}
+                              className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                            >
+                              ✕
+                            </button>
+                            <p className="text-xs text-slate-600 mt-1 truncate">{image.name}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
                   <div className="md:col-span-2">
                     <label className="flex items-center gap-2">
                       <input
@@ -619,14 +767,14 @@ const MigrationForm = () => {
           <div className="flex gap-4 pt-4">
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || uploadingImages}
               className={`flex-1 py-3 px-6 rounded-lg font-semibold text-white transition-all ${
-                loading
+                loading || uploadingImages
                   ? 'bg-slate-400 cursor-not-allowed'
                   : 'bg-[#074BED] hover:bg-[#0639C8] shadow-lg hover:shadow-xl'
               }`}
             >
-              {loading ? '⏳ Guardando...' : '💾 Guardar Datos'}
+              {uploadingImages ? '📤 Subiendo imágenes...' : loading ? '⏳ Guardando...' : '💾 Guardar Datos'}
             </button>
 
             <button
@@ -656,6 +804,7 @@ const MigrationForm = () => {
                     short_code: '',
                     custom_item_id: '',
                     quote_id: '',
+                    images: [],
                   }]);
                   setMessage({ type: '', text: '' });
                 }
@@ -675,6 +824,7 @@ const MigrationForm = () => {
             <br />• total_volume y total_items calculados automáticamente
             <br />• <strong>amount_monthly:</strong> Precio mensual recurrente que aparecerá en las facturas
             <br />• <strong>amount_total:</strong> Precio del primer pago (opcional, si es diferente al mensual)
+            <br />• <strong>📸 Imágenes:</strong> Se suben al bucket "Inventory" de Supabase y se guarda la URL en image_url
             <br />Los campos <code>item_id</code> y <code>short_code</code> se auto-generan si están vacíos.
           </p>
         </div>

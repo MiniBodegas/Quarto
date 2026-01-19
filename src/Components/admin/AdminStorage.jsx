@@ -298,6 +298,9 @@ const AdminStorage = () => {
                                                                             <th className="px-3 py-2 text-right font-semibold text-text-primary">
                                                                                 Volumen (m³)
                                                                             </th>
+                                                                            <th className="px-3 py-2 text-center font-semibold text-text-primary">
+                                                                                Imagen
+                                                                            </th>
                                                                             <th className="px-3 py-2 text-left font-semibold text-text-primary">
                                                                                 Estado
                                                                             </th>
@@ -312,7 +315,7 @@ const AdminStorage = () => {
                                                                                     </span>
                                                                                 </td>
                                                                                 <td className="px-3 py-2 text-text-primary">
-                                                                                    {item.item_name || 'Ítem sin nombre'}
+                                                                                    {item.name || item.item_name || 'Ítem sin nombre'}
                                                                                 </td>
                                                                                 <td className="px-3 py-2 text-text-secondary">
                                                                                     {item.category || 'Sin categoría'}
@@ -322,6 +325,23 @@ const AdminStorage = () => {
                                                                                 </td>
                                                                                 <td className="px-3 py-2 text-right text-text-primary font-semibold">
                                                                                     {(Number(item.volume) || 0).toFixed(3)}
+                                                                                </td>
+                                                                                <td className="px-3 py-2 text-center">
+                                                                                    {item.image_url ? (
+                                                                                        <a
+                                                                                            href={item.image_url}
+                                                                                            target="_blank"
+                                                                                            rel="noopener noreferrer"
+                                                                                            className="inline-flex items-center justify-center w-8 h-8 bg-blue-500 hover:bg-blue-600 text-white rounded-full transition-colors"
+                                                                                            title="Ver imagen"
+                                                                                        >
+                                                                                            <span className="material-symbols-outlined text-sm">
+                                                                                                image
+                                                                                            </span>
+                                                                                        </a>
+                                                                                    ) : (
+                                                                                        <span className="text-gray-400 text-xs">Sin imagen</span>
+                                                                                    )}
                                                                                 </td>
                                                                                 <td className="px-3 py-2">
                                                                                     <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
