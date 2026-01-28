@@ -199,7 +199,7 @@ const CompleteRegistration = ({ bookingData, onSkip }) => {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900"
                 placeholder="••••••••"
                 autoFocus
               />
@@ -218,7 +218,7 @@ const CompleteRegistration = ({ bookingData, onSkip }) => {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="w-full px-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900"
                 placeholder="••••••••"
               />
             </div>
