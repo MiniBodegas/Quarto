@@ -1,19 +1,15 @@
-// Payment Screen con Verificación Automática Silenciosa
+// Payment Screennnnnn Perfecto
 
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { WompiPayButton, Button } from "../../Components";
-import { supabase } from "../../supabase";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
-const PaymentScreen = ({ wompi, onBack, onPaymentSuccess }) => {
-  const navigate = useNavigate();
+const PaymentScreen = ({ wompi, onBack }) => {
   const [signature, setSignature] = useState(null);
   const [loadingSig, setLoadingSig] = useState(false);
   const [sigError, setSigError] = useState("");
 
-  // Efecto para generar firma
   useEffect(() => {
     const run = async () => {
       if (!wompi) return;
@@ -65,83 +61,6 @@ const PaymentScreen = ({ wompi, onBack, onPaymentSuccess }) => {
 
     run();
   }, [wompi]);
-
-  // ✅ Efecto para verificar el pago automáticamente cada 10 segundos (silencioso)
-  useEffect(() => {
-    if (!wompi?.bookingId) return;
-
-    let verificationCount = 0;
-
-    const checkPaymentStatus = async () => {
-      try {
-        verificationCount++;
-        console.log(`[Payment] 🔍 Verificación silenciosa #${verificationCount}`);
-
-        // ✅ Traer toda la info del booking incluyendo wompi_transaction_id
-        const { data: booking, error } = await supabase
-          .from("bookings")
-          .select("id, payment_status, wompi_transaction_id, wompi_reference, name, email, phone, paid_at")
-          .eq("id", wompi.bookingId)
-          .single();
-
-        if (error) {
-          console.error("[Payment] Error verificando pago:", error);
-          return;
-        }
-
-        console.log("[Payment] Estado actual:", booking.payment_status);
-        if (booking.wompi_transaction_id) {
-          console.log("[Payment] 🎫 Transaction ID:", booking.wompi_transaction_id);
-        }
-
-        if (booking.payment_status === "APPROVED") {
-          console.log("[Payment] ✅ Pago aprobado! Redirigiendo...");
-          console.log("[Payment] 📋 Datos del pago:", {
-            transactionId: booking.wompi_transaction_id,
-            reference: booking.wompi_reference,
-            paidAt: booking.paid_at
-          });
-          
-          // Limpiar interval
-          clearInterval(intervalId);
-          
-          // Llamar callback de éxito si existe
-          if (onPaymentSuccess) {
-            onPaymentSuccess(booking);
-          }
-          
-          // Redirigir a la pantalla de éxito con el booking_id
-          setTimeout(() => {
-            navigate(`/payment-success?booking_id=${booking.id}`);
-          }, 1000);
-        }
-      } catch (err) {
-        console.error("[Payment] Error en verificación automática:", err);
-      }
-    };
-
-    // Primera verificación después de 10 segundos
-    const timeoutId = setTimeout(() => {
-      checkPaymentStatus();
-    }, 10000);
-
-    // Verificaciones periódicas cada 10 segundos
-    const intervalId = setInterval(() => {
-      checkPaymentStatus();
-    }, 10000);
-
-    // Limpiar al desmontar o después de 10 minutos (60 verificaciones)
-    const maxChecksTimeout = setTimeout(() => {
-      console.log("[Payment] ⏱️ Tiempo máximo de verificación alcanzado (10 min)");
-      clearInterval(intervalId);
-    }, 600000); // 10 minutos
-
-    return () => {
-      clearTimeout(timeoutId);
-      clearInterval(intervalId);
-      clearTimeout(maxChecksTimeout);
-    };
-  }, [wompi?.bookingId, onPaymentSuccess]);
 
   if (!wompi) {
     return (
@@ -222,6 +141,7 @@ const PaymentScreen = ({ wompi, onBack, onPaymentSuccess }) => {
       </div>
     </div>
   );
+
 };
 
 export default PaymentScreen;

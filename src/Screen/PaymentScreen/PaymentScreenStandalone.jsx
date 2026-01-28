@@ -55,11 +55,11 @@ const PaymentScreenStandalone = () => {
         .from('bookings')
         .select('*')
         .eq('id', bookingId)
-        .single();
+        .maybeSingle();
 
       if (error || !booking) {
         console.error('[PaymentStandalone] Error obteniendo booking:', error);
-        setSigError('No se pudo cargar la información del pago.');
+        setSigError('No se encontró la factura. Verifica el ID o contacta soporte.');
         return;
       }
 
@@ -168,10 +168,15 @@ const PaymentScreenStandalone = () => {
           .from("bookings")
           .select("id, payment_status, wompi_transaction_id, wompi_reference, paid_at")
           .eq("id", wompiData.bookingId)
-          .single();
+          .maybeSingle();
 
         if (error) {
           console.error("[PaymentStandalone] Error verificando:", error);
+          return;
+        }
+
+        if (!booking) {
+          console.warn("[PaymentStandalone] ⚠️ Booking no encontrado:", wompiData.bookingId);
           return;
         }
 
