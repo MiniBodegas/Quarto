@@ -9,6 +9,7 @@ import AdminStatements from './admin/AdminStatements';
 import AdminAccessControl from './admin/AdminAccessControl';
 import AdminProfile from './admin/AdminProfile';
 import AdminManagers from './admin/AdminManagers';
+import AdminQuotes from './admin/AdminQuotes';
 import Spinner from './ui/Spinner';
 
 const AdminHeader = ({ adminUser, onToggleSidebar }) => (
@@ -37,6 +38,7 @@ const Sidebar = ({ currentView, setView, onSignOut, isOpen }) => {
   const navItems = [
     { id: 'dashboard', name: 'Dashboard General', icon: <span className="material-symbols-outlined">dashboard</span> },
     { id: 'access_control', name: 'Control de Acceso', icon: <span className="material-symbols-outlined">security</span> },
+    { id: 'quotes', name: 'Cotizaciones', icon: <span className="material-symbols-outlined">request_quote</span> },
     { id: 'clients', name: 'Clientes', icon: <span className="material-symbols-outlined">group</span> },
     { id: 'storage', name: 'Bodegas', icon: <span className="material-symbols-outlined">warehouse</span> },
     { id: 'invoices', name: 'Facturas', icon: <span className="material-symbols-outlined">receipt_long</span> },
@@ -105,6 +107,8 @@ const AdminPanel = (props) => {
                             onRegisterAccess={onRegisterAccess}
                             onAddAuthorizedPerson={onAddAuthorizedPerson}
                         />;
+            case 'quotes':
+                return <AdminQuotes />;
             case 'clients':
                 return <AdminClients />;
             case 'storage':
