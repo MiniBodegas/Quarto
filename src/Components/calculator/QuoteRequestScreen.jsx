@@ -215,7 +215,7 @@ const QuoteRequestScreen = ({
           // Guardar en inventory
           const inventoryPayload = {
             quote_id: quoteId,
-            item_id: !item.isCustom && item.id ? item.id : null,
+            item_id: null, // Los items predefinidos tienen IDs string, no UUID
             custom_item_id: customItemId,
             name: item.name,
             quantity: Number(item.quantity ?? 1),
